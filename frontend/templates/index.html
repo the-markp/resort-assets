@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>G-Tracker — Asset Management</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Mono:wght@300;400&family=Jost:wght@200;300;400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/css/style.css" />
+</head>
+<body>
+
+  <!-- ── LOGIN SCREEN ─────────────────────────────────────────────────── -->
+  <div id="loginScreen" class="login-screen">
+    <div class="login-card">
+      <div class="login-logo">
+        <span class="logo-text">G-TRACKER</span>
+        <span class="logo-sub">RESORT · ASSET MANAGEMENT</span>
+      </div>
+      <div class="login-body">
+        <div class="form-group">
+          <label class="form-label">Username</label>
+          <input class="form-input" id="loginUsername" placeholder="Enter username" autocomplete="username" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Password</label>
+          <input class="form-input" id="loginPassword" type="password" placeholder="Enter password" autocomplete="current-password" />
+        </div>
+        <div id="loginError" class="login-error hidden"></div>
+        <button class="btn-primary btn-full" id="loginBtn">Sign In</button>
+      </div>
+      <div class="login-footer">G-Tracker v2.0 · Resort Asset System</div>
+    </div>
+  </div>
+
+  <!-- ── APP SHELL ─────────────────────────────────────────────────────── -->
+  <div id="appShell" class="hidden">
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-logo">
+        <span class="logo-text">G-TRACKER</span>
+        <span class="logo-sub">RESORT · ASSET SYSTEM</span>
+      </div>
+
+      <nav class="sidebar-nav">
+        <a href="#" class="nav-item active" data-view="dashboard">
+          <span class="nav-icon">◈</span><span>Dashboard</span>
+        </a>
+        <a href="#" class="nav-item" data-view="assets">
+          <span class="nav-icon">◻</span><span>All Assets</span>
+        </a>
+        <div class="nav-divider"><span>Categories</span></div>
+        <a href="#" class="nav-item category-link" data-category="rooms_facilities">
+          <span class="nav-icon">🏨</span><span>Rooms & Facilities</span>
+        </a>
+        <a href="#" class="nav-item category-link" data-category="furniture_equipment">
+          <span class="nav-icon">🪑</span><span>Furniture & Equipment</span>
+        </a>
+        <a href="#" class="nav-item category-link" data-category="vehicles_transport">
+          <span class="nav-icon">🚗</span><span>Vehicles & Transport</span>
+        </a>
+        <a href="#" class="nav-item category-link" data-category="it_electronics">
+          <span class="nav-icon">💻</span><span>IT & Electronics</span>
+        </a>
+        <a href="#" class="nav-item category-link" data-category="maintenance_tools">
+          <span class="nav-icon">🔧</span><span>Maintenance Tools</span>
+        </a>
+        <a href="#" class="nav-item category-link" data-category="inventory_consumables">
+          <span class="nav-icon">📦</span><span>Inventory & Consumables</span>
+        </a>
+        <div class="nav-divider admin-only"><span>Administration</span></div>
+        <a href="#" class="nav-item admin-only" data-view="users">
+          <span class="nav-icon">👤</span><span>Users</span>
+        </a>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="current-user-info">
+          <div class="cu-name" id="cuName">—</div>
+          <div class="cu-role" id="cuRole">—</div>
+        </div>
+        <button class="btn-logout" id="logoutBtn" title="Sign out">⏻</button>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <main class="main">
+      <header class="topbar">
+        <div class="topbar-left">
+          <button class="sidebar-toggle" id="sidebarToggle">☰</button>
+          <div class="breadcrumb" id="breadcrumb">Dashboard</div>
+        </div>
+        <div class="topbar-right">
+          <div class="search-wrap">
+            <input type="text" id="globalSearch" placeholder="Search assets…" class="search-input" />
+            <span class="search-icon">⌕</span>
+          </div>
+          <button class="btn-primary editor-only" id="addAssetBtn">+ New Asset</button>
+        </div>
+      </header>
+
+      <div class="view" id="view-dashboard"></div>
+      <div class="view hidden" id="view-assets"></div>
+      <div class="view hidden" id="view-users"></div>
+    </main>
+  </div>
+
+  <!-- Modal -->
+  <div class="modal-overlay hidden" id="modalOverlay">
+    <div class="modal" id="modal">
+      <div class="modal-header">
+        <h2 class="modal-title" id="modalTitle">—</h2>
+        <button class="modal-close" id="modalClose">✕</button>
+      </div>
+      <div class="modal-body" id="modalBody"></div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script src="/static/js/app.js"></script>
+</body>
+</html>

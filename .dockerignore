@@ -1,0 +1,12 @@
+**/__pycache__
+**/*.pyc
+**/*.pyo
+.env*
+.git
+.gitignore
+*.md
+docker-compose*.yml
+.pytest_cache
+tests
+*.egg-info
+dist

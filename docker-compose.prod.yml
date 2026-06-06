@@ -1,0 +1,22 @@
+version: "3.9"
+
+# Production override — point to an external managed PostgreSQL (e.g. AWS RDS)
+# Usage: docker compose -f docker-compose.yml -f docker-compose.prod.yml up
+#
+# Set DATABASE_URL to your RDS/Cloud SQL connection string, e.g.:
+#   postgresql+asyncpg://user:password@your-rds-host:5432/palma_assets
+
+services:
+  db:
+    profiles:
+      - disabled   # disable local postgres in production
+
+  app:
+    environment:
+      DATABASE_URL: "${DATABASE_URL}"
+    restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 512M

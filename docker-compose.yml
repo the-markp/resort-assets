@@ -1,0 +1,48 @@
+version: "3.9"
+
+services:
+
+  db:
+    image: postgres:16-alpine
+    container_name: palma_db
+    environment:
+      POSTGRES_DB:       palma_assets
+      POSTGRES_USER:     palma
+      POSTGRES_PASSWORD: palma
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U palma -d palma_assets"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - palma_net
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: palma_app
+    environment:
+      DATABASE_URL:         "postgresql+asyncpg://palma:palma@db:5432/palma_assets"
+      SECRET_KEY:           "change-me-in-production-use-a-long-random-string"
+      TOKEN_EXPIRE_MINUTES: "480"
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - palma_net
+    restart: on-failure
+
+volumes:
+  postgres_data:
+
+networks:
+  palma_net:
+    driver: bridge
