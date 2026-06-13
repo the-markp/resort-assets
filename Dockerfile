@@ -8,21 +8,26 @@ RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 # ─── Runtime stage ────────────────────────────────────────────────────────────
 FROM python:3.12-slim
 
-LABEL maintainer="Palma Resort Asset Management"
-LABEL description="Resort Asset Management System — FastAPI + DynamoDB"
+LABEL maintainer="G-Tracker Asset Management"
+LABEL description="G-Tracker Resort Asset Management System"
 
 WORKDIR /app
 
 # Copy installed dependencies
 COPY --from=builder /install /usr/local
 
-# Copy application code — paths are relative to the build context (project root)
-COPY app/                         ./app/
-COPY frontend/templates/          ./frontend/templates/
-COPY frontend/static/             ./frontend/static/
+# Copy application code
+COPY app/                ./app/
+COPY frontend/templates/ ./frontend/templates/
+COPY frontend/static/    ./frontend/static/
 
-# Create non-root user for security
-RUN addgroup --system appgroup && adduser --system --ingroup appgroup appuser
+# Create non-root user, then make the uploads directory writable by that user
+# Must be done BEFORE switching to the non-root user
+RUN addgroup --system appgroup \
+ && adduser --system --ingroup appgroup appuser \
+ && mkdir -p /app/frontend/static/uploads \
+ && chown -R appuser:appgroup /app/frontend/static/uploads
+
 USER appuser
 
 EXPOSE 8000

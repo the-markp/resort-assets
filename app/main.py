@@ -7,7 +7,7 @@ import logging
 import uvicorn
 
 from app.database import init_tables
-from app.routers import assets, categories, dashboard, auth, users
+from app.routers import assets, categories, dashboard, auth, users, incidents, settings
 
 logging.basicConfig(
     level=logging.INFO,
@@ -29,7 +29,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="G-Tracker Asset Management",
     description="Resort hotel asset tracking system",
-    version="2.0.0",
+    version="3.0.0",
     lifespan=lifespan,
 )
 
@@ -40,11 +40,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(auth.router,       prefix="/api/auth",       tags=["Auth"])
-app.include_router(users.router,      prefix="/api/users",      tags=["Users"])
-app.include_router(assets.router,     prefix="/api/assets",     tags=["Assets"])
-app.include_router(categories.router, prefix="/api/categories", tags=["Categories"])
-app.include_router(dashboard.router,  prefix="/api/dashboard",  tags=["Dashboard"])
+app.include_router(auth.router,      prefix="/api/auth",      tags=["Auth"])
+app.include_router(users.router,     prefix="/api/users",     tags=["Users"])
+app.include_router(assets.router,    prefix="/api/assets",    tags=["Assets"])
+app.include_router(categories.router,prefix="/api/categories",tags=["Categories"])
+app.include_router(dashboard.router, prefix="/api/dashboard", tags=["Dashboard"])
+app.include_router(incidents.router, prefix="/api/incidents", tags=["Incidents"])
+app.include_router(settings.router,  prefix="/api/settings",  tags=["Settings"])
 
 app.mount("/static", StaticFiles(directory="frontend/static"), name="static")
 

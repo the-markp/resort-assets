@@ -11,10 +11,11 @@
 </head>
 <body>
 
-  <!-- ── LOGIN SCREEN ─────────────────────────────────────────────────── -->
+  <!-- ── LOGIN ──────────────────────────────────────────────────────────── -->
   <div id="loginScreen" class="login-screen">
     <div class="login-card">
       <div class="login-logo">
+        <div class="login-logo-img-wrap" id="loginLogoWrap"></div>
         <span class="logo-text">G-TRACKER</span>
         <span class="logo-sub">RESORT · ASSET MANAGEMENT</span>
       </div>
@@ -30,16 +31,21 @@
         <div id="loginError" class="login-error hidden"></div>
         <button class="btn-primary btn-full" id="loginBtn">Sign In</button>
       </div>
-      <div class="login-footer">G-Tracker v2.0 · Resort Asset System</div>
+      <div class="login-footer">G-Tracker v3.0 · Resort Asset System</div>
     </div>
   </div>
 
-  <!-- ── APP SHELL ─────────────────────────────────────────────────────── -->
+  <!-- ── APP SHELL ───────────────────────────────────────────────────────── -->
   <div id="appShell" class="hidden">
 
-    <!-- Sidebar -->
     <aside class="sidebar" id="sidebar">
       <div class="sidebar-logo">
+        <div class="logo-img-wrap" id="sidebarLogoWrap">
+          <label class="logo-upload-btn admin-only" id="logoUploadLabel" title="Change logo">
+            <input type="file" id="logoUploadInput" accept="image/*" style="display:none" />
+            ✎
+          </label>
+        </div>
         <span class="logo-text">G-TRACKER</span>
         <span class="logo-sub">RESORT · ASSET SYSTEM</span>
       </div>
@@ -51,29 +57,19 @@
         <a href="#" class="nav-item" data-view="assets">
           <span class="nav-icon">◻</span><span>All Assets</span>
         </a>
+        <a href="#" class="nav-item" data-view="incidents">
+          <span class="nav-icon">⚑</span><span>Incident Reports</span>
+          <span class="nav-badge hidden" id="openIncidentsBadge">0</span>
+        </a>
         <div class="nav-divider"><span>Categories</span></div>
-        <a href="#" class="nav-item category-link" data-category="rooms_facilities">
-          <span class="nav-icon">🏨</span><span>Rooms & Facilities</span>
-        </a>
-        <a href="#" class="nav-item category-link" data-category="furniture_equipment">
-          <span class="nav-icon">🪑</span><span>Furniture & Equipment</span>
-        </a>
-        <a href="#" class="nav-item category-link" data-category="vehicles_transport">
-          <span class="nav-icon">🚗</span><span>Vehicles & Transport</span>
-        </a>
-        <a href="#" class="nav-item category-link" data-category="it_electronics">
-          <span class="nav-icon">💻</span><span>IT & Electronics</span>
-        </a>
-        <a href="#" class="nav-item category-link" data-category="maintenance_tools">
-          <span class="nav-icon">🔧</span><span>Maintenance Tools</span>
-        </a>
-        <a href="#" class="nav-item category-link" data-category="inventory_consumables">
-          <span class="nav-icon">📦</span><span>Inventory & Consumables</span>
-        </a>
+        <a href="#" class="nav-item category-link" data-category="rooms_facilities"><span class="nav-icon">🏨</span><span>Rooms & Facilities</span></a>
+        <a href="#" class="nav-item category-link" data-category="furniture_equipment"><span class="nav-icon">🪑</span><span>Furniture & Equipment</span></a>
+        <a href="#" class="nav-item category-link" data-category="vehicles_transport"><span class="nav-icon">🚗</span><span>Vehicles & Transport</span></a>
+        <a href="#" class="nav-item category-link" data-category="it_electronics"><span class="nav-icon">💻</span><span>IT & Electronics</span></a>
+        <a href="#" class="nav-item category-link" data-category="maintenance_tools"><span class="nav-icon">🔧</span><span>Maintenance Tools</span></a>
+        <a href="#" class="nav-item category-link" data-category="inventory_consumables"><span class="nav-icon">📦</span><span>Inventory & Consumables</span></a>
         <div class="nav-divider admin-only"><span>Administration</span></div>
-        <a href="#" class="nav-item admin-only" data-view="users">
-          <span class="nav-icon">👤</span><span>Users</span>
-        </a>
+        <a href="#" class="nav-item admin-only" data-view="users"><span class="nav-icon">👤</span><span>Users</span></a>
       </nav>
 
       <div class="sidebar-footer">
@@ -81,11 +77,10 @@
           <div class="cu-name" id="cuName">—</div>
           <div class="cu-role" id="cuRole">—</div>
         </div>
-        <button class="btn-logout" id="logoutBtn" title="Sign out">⏻</button>
+        <button class="btn-logout" id="logoutBtn" onclick="doLogout()" title="Sign out">⏻</button>
       </div>
     </aside>
 
-    <!-- Main -->
     <main class="main">
       <header class="topbar">
         <div class="topbar-left">
@@ -101,8 +96,9 @@
         </div>
       </header>
 
-      <div class="view" id="view-dashboard"></div>
+      <div class="view"        id="view-dashboard"></div>
       <div class="view hidden" id="view-assets"></div>
+      <div class="view hidden" id="view-incidents"></div>
       <div class="view hidden" id="view-users"></div>
     </main>
   </div>
@@ -118,9 +114,7 @@
     </div>
   </div>
 
-  <!-- Toast -->
   <div class="toast-container" id="toastContainer"></div>
-
   <script src="/static/js/app.js"></script>
 </body>
 </html>
