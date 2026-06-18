@@ -29,9 +29,19 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="G-Tracker Asset Management",
     description="Resort hotel asset tracking system",
-    version="3.0.0",
+    version="3.0.1",
     lifespan=lifespan,
 )
+
+# ── Trust X-Forwarded-Proto / X-Forwarded-Host from the reverse proxy (Caddy/Nginx) ───
+# Without this, Starlette's automatic trailing-slash redirects use the scheme the app
+# sees internally (http://, since the proxy connects to it over plain HTTP on localhost)
+# instead of the scheme the browser actually used (https://). The browser then blocks
+# the redirected request as mixed content. ProxyHeadersMiddleware fixes this by reading
+# X-Forwarded-Proto and rewriting the request scope's "scheme" accordingly.
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware  # noqa: E402
+
+app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
 
 app.add_middleware(
     CORSMiddleware,
@@ -58,4 +68,13 @@ async def root():
 
 
 if __name__ == "__main__":
-    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
+    # proxy_headers + forwarded_allow_ips tell Uvicorn to trust X-Forwarded-* headers
+    # from the upstream proxy. Safe here since the app is only reachable via that proxy.
+    uvicorn.run(
+        "app.main:app",
+        host="0.0.0.0",
+        port=8000,
+        reload=True,
+        proxy_headers=True,
+        forwarded_allow_ips="*",
+    )
