@@ -1,0 +1,39 @@
+version: "3.9"
+
+# docker-compose.db.yml — standalone PostgreSQL, run independently of app instances.
+# Designed to be reachable from OTHER PHYSICAL MACHINES on the same LAN, not just
+# from app containers on this host.
+# Usage: docker compose -f docker-compose.db.yml up -d
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: gtracker_db
+    environment:
+      POSTGRES_DB:       palma_assets
+      POSTGRES_USER:     palma
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in your environment or .env file}
+    ports:
+      - "5432:5432"     # binds 0.0.0.0:5432 on this host — reachable from the LAN
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./pg_hba.conf:/etc/postgresql/pg_hba.conf:ro   # custom rules — see note below
+    command: >
+      postgres -c hba_file=/etc/postgresql/pg_hba.conf
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U palma -d palma_assets"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - gtracker_shared
+
+volumes:
+  postgres_data:
+
+networks:
+  gtracker_shared:
+    driver: bridge
+    name: gtracker_shared
