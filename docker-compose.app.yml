@@ -15,15 +15,15 @@ services:
       SECRET_KEY:           "${SECRET_KEY:?Set SECRET_KEY in your environment or .env file}"
       TOKEN_EXPIRE_MINUTES: "480"
     ports:
-      - "8000-8010:8000"   # let Docker assign a free host port per replica
+      - "8000:8000"   # let Docker assign a free host port per replica
     volumes:
       # Shared logo uploads — see note below on why this matters
       - uploads_data:/app/frontend/static/uploads
     networks:
       - gtracker_shared
     restart: unless-stopped
-    deploy:
-      replicas: 3           # only honored by `docker stack deploy`; for plain
+#    deploy:
+#      replicas: 3           # only honored by `docker stack deploy`; for plain
                              # `docker compose up`, use --scale app=3 instead
 
 volumes:
