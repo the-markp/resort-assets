@@ -6,9 +6,6 @@
 g.endonalaw.com {
     reverse_proxy localhost:8000 {
         header_up X-Forwarded-Proto https
-        lb_policy round_robin
-        health_uri  /api/dashboard/summary
-        health_interval 10s
     }
 }
 
