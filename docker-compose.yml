@@ -5,6 +5,7 @@ services:
   db:
     image: postgres:16-alpine
     container_name: palma_db
+    restart: unless-stopped
     environment:
       POSTGRES_DB:       palma_assets
       POSTGRES_USER:     palma
@@ -27,6 +28,7 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: palma_app
+    restart: unless-stopped
     environment:
       DATABASE_URL:         "postgresql+asyncpg://palma:palma@db:5432/palma_assets"
       SECRET_KEY:           "change-me-in-production-use-a-long-random-string"
@@ -40,8 +42,7 @@ services:
         condition: service_healthy
     networks:
       - palma_net
-    restart: on-failure
-
+      
 volumes:
   postgres_data:
   uploads_data:

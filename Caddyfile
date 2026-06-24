@@ -1,0 +1,14 @@
+# Caddyfile — load balances across N app container instances
+# When using `docker compose --scale app=3`, Docker's embedded DNS resolves the
+# service name `app` to all replica IPs round-robin automatically — so Caddy
+# only needs to point at the service name once.
+
+g.endonalaw.com {
+    reverse_proxy localhost:8000 {
+        header_up X-Forwarded-Proto https
+    }
+}
+
+:80 {
+    redir https://g.endonalaw.com{uri} permanent
+}

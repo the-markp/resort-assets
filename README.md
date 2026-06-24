@@ -164,3 +164,26 @@ resort-assets/
 ├── requirements.txt
 └── .env.example
 ```
+## Deployment
+1. Install Caddy and verify
+2. Pull latest code
+3. Generate .env file
+4. docker compose -f docker-compose.db.yml up -d
+5. Restore database from backup, if needed
+6. docker compose -f docker-compose.app.yml up -d
+7. Edit Caddyfile
+
+## Backup and Restore
+
+1. Automate daily backup
+  chmod a+rx db-backup.sh
+  sudo crontab -e
+  0 2 * * * /home/<user>/resort-assets/db-backup.sh
+
+2. Restore procedure
+  chmod a+rx db-restore.sh
+  <rename backup file to "db.sql.gz">
+  sudo docker stop resort-assets-app-1
+  sudo ./db-restore.sh
+  sudo docker compose -f docker-compose.app.yml up -d
+
