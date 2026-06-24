@@ -177,7 +177,8 @@ resort-assets/
 
 1. Automate daily backup
   chmod a+rx db-backup.sh
-  sudo crontab -e 0 2 * * * /home/<user>/resort-assets/db-backup.sh
+  sudo crontab -e
+  0 2 * * * /home/<user>/resort-assets/db-backup.sh
 
 2. Restore procedure
   chmod a+rx db-restore.sh
