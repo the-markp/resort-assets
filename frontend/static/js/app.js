@@ -186,6 +186,7 @@ function bindApp() {
       else if (view==='assets')    { state.currentCategory=null; state.filterCategory=''; showView('assets'); }
       else if (view==='incidents') { showView('incidents'); }
       else if (view==='users')     { showView('users'); }
+      else if (view==='documents') { showView('documents'); }
       else if (cat) { state.currentCategory=cat; state.filterCategory=cat; showView('assets'); }
       if(window.innerWidth<900) document.getElementById('sidebar').classList.remove('open');
     });
@@ -209,13 +210,14 @@ async function refreshIncidentBadge() {
 // ─── VIEW ROUTING ─────────────────────────────────────────────────────────────
 async function showView(name) {
   state.currentView = name;
-  ['dashboard','assets','incidents','users'].forEach(v => document.getElementById(`view-${v}`)?.classList.toggle('hidden', v!==name));
-  const labels = {dashboard:'Dashboard',assets:'All Assets',incidents:'Incident Reports',users:'User Management'};
+  ['dashboard','assets','incidents','users','documents'].forEach(v => document.getElementById(`view-${v}`)?.classList.toggle('hidden', v!==name));
+  const labels = {dashboard:'Dashboard',assets:'All Assets',incidents:'Incident Reports',users:'User Management',documents:'Policy Documents'};
   document.getElementById('breadcrumb').textContent = (state.currentCategory ? CATEGORY_META[state.currentCategory]?.label : null) || labels[name] || name;
   if (name==='dashboard') await renderDashboard();
   else if (name==='assets') await renderAssetsView();
   else if (name==='incidents') await renderIncidentsView();
   else if (name==='users') await renderUsersView();
+  else if (name==='documents') await renderDocumentsView();
 }
 
 // ─── DASHBOARD ────────────────────────────────────────────────────────────────
@@ -735,3 +737,191 @@ function formatNumber(n){if(isNaN(n))return '0';return n.toLocaleString('en-PH',
 function getGreeting(){const h=new Date().getHours();return h<12?'morning':h<17?'afternoon':'evening';}
 function timeAgo(iso){if(!iso)return '';const d=new Date(iso),now=new Date(),diff=Math.floor((now-d)/1000);if(diff<60)return 'just now';if(diff<3600)return Math.floor(diff/60)+'m ago';if(diff<86400)return Math.floor(diff/3600)+'h ago';return Math.floor(diff/86400)+'d ago';}
 function showToast(msg,type='info'){const c=document.getElementById('toastContainer'),t=document.createElement('div');t.className=`toast ${type}`;const icons={success:'✓',error:'✕',info:'◈'};t.innerHTML=`<span style="color:${type==='success'?'var(--status-available)':type==='error'?'var(--status-lost)':'var(--gold)'}">${icons[type]||''}</span> ${esc(msg)}`;c.appendChild(t);setTimeout(()=>t.remove(),4000);}
+
+// ─── DOCUMENTS VIEW ───────────────────────────────────────────────────────────
+async function renderDocumentsView() {
+  const el = document.getElementById('view-documents');
+  el.innerHTML = '<div class="loading">Loading documents</div>';
+  let docs;
+  try { docs = await api('/documents'); }
+  catch { el.innerHTML = `<div class="empty-state"><span class="empty-icon">⚠</span><p>Failed to load documents.</p></div>`; return; }
+
+  el.innerHTML = `
+    <div class="assets-header">
+      <h2>Policy Documents</h2>
+      ${isAdmin() ? `<button class="btn-primary" onclick="openUploadDocModal()">⬆ Upload Document</button>` : ''}
+    </div>
+    ${docs.length === 0
+      ? `<div class="empty-state">
+           <span class="empty-icon">📄</span>
+           <p>${isAdmin() ? 'No documents uploaded yet. Use the button above to add a PDF.' : 'No policy documents are available yet.'}</p>
+         </div>`
+      : `<div class="doc-grid">
+           ${docs.map(docCard).join('')}
+         </div>`
+    }`;
+}
+
+function docCard(doc) {
+  const size = doc.file_size ? formatFileSize(doc.file_size) : '';
+  return `
+    <div class="doc-card">
+      <div class="doc-card-icon">📄</div>
+      <div class="doc-card-name">${esc(doc.name)}</div>
+      ${doc.description ? `<div class="doc-card-desc">${esc(doc.description)}</div>` : ''}
+      <div class="doc-card-meta">
+        ${size ? `<span>📦 ${size}</span>` : ''}
+        <span>⬆ ${esc(doc.uploader_name || 'Admin')}</span>
+        <span>📅 ${new Date(doc.created_at).toLocaleDateString()}</span>
+      </div>
+      <div class="doc-card-actions">
+        <button class="btn-download" onclick="downloadDoc('${doc.doc_id}', '${esc(doc.filename)}')">
+          ⬇ Download PDF
+        </button>
+        ${isAdmin() ? `<button class="btn-icon" title="Delete" onclick="confirmDeleteDoc('${doc.doc_id}','${esc(doc.name)}')">✕</button>` : ''}
+      </div>
+    </div>`;
+}
+
+async function downloadDoc(docId, filename) {
+  try {
+    const res = await fetch(`${API}/documents/${docId}/download`, {
+      headers: { 'Authorization': `Bearer ${auth.token}` },
+    });
+    if (!res.ok) throw new Error('Download failed');
+    const blob = await res.blob();
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast(`Downloaded ${filename}`, 'success');
+  } catch(err) {
+    showToast('Download failed. Please try again.', 'error');
+  }
+}
+
+function openUploadDocModal() {
+  openModal('Upload Policy Document', `
+    <div class="form-grid">
+      <div class="form-group full">
+        <label class="form-label">Document Name *</label>
+        <input class="form-input" id="doc_name" placeholder="e.g. Employee Code of Conduct" />
+      </div>
+      <div class="form-group full">
+        <label class="form-label">Description</label>
+        <textarea class="form-textarea" id="doc_description" placeholder="Brief description of this document…"></textarea>
+      </div>
+      <div class="form-group full">
+        <label class="form-label">PDF File *</label>
+        <div class="upload-zone" id="docDropZone" onclick="document.getElementById('docFileInput').click()">
+          <span class="upload-zone-icon">📄</span>
+          <div class="upload-zone-text" id="docDropText">Click to select a PDF, or drag and drop here</div>
+          <div class="upload-zone-hint">PDF only · Max 20 MB</div>
+        </div>
+        <input type="file" id="docFileInput" accept=".pdf" style="display:none" onchange="onDocFileSelected(this)" />
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn-secondary" onclick="closeModal()">Cancel</button>
+      <button class="btn-primary" id="docUploadBtn">Upload Document</button>
+    </div>`);
+
+  // Drag-and-drop binding
+  const zone = document.getElementById('docDropZone');
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault();
+    zone.classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (file) updateDocDropZone(file);
+    const input = document.getElementById('docFileInput');
+    const dt = new DataTransfer();
+    if (file) dt.items.add(file);
+    input.files = dt.files;
+  });
+
+  document.getElementById('docUploadBtn').addEventListener('click', submitDocUpload);
+}
+
+function onDocFileSelected(input) {
+  if (input.files[0]) updateDocDropZone(input.files[0]);
+}
+
+function updateDocDropZone(file) {
+  const text = document.getElementById('docDropText');
+  if (text) text.textContent = `✓ ${file.name} (${formatFileSize(file.size)})`;
+  const zone = document.getElementById('docDropZone');
+  if (zone) { zone.style.borderColor = 'var(--status-available)'; zone.style.background = 'var(--status-available-bg)'; }
+}
+
+async function submitDocUpload() {
+  const name  = document.getElementById('doc_name')?.value.trim();
+  const desc  = document.getElementById('doc_description')?.value.trim();
+  const input = document.getElementById('docFileInput');
+  const file  = input?.files[0];
+  const btn   = document.getElementById('docUploadBtn');
+
+  if (!name)  { showToast('Document name is required.', 'error'); return; }
+  if (!file)  { showToast('Please select a PDF file.', 'error'); return; }
+  if (!file.name.toLowerCase().endsWith('.pdf')) { showToast('Only PDF files are allowed.', 'error'); return; }
+
+  btn.textContent = 'Uploading…'; btn.disabled = true;
+
+  try {
+    const formData = new FormData();
+    formData.append('name', name);
+    formData.append('description', desc || '');
+    formData.append('file', file);
+
+    const res = await fetch(`${API}/documents/`, {
+      method:  'POST',
+      headers: { 'Authorization': `Bearer ${auth.token}` },
+      body:    formData,
+      // Note: do NOT set Content-Type here — browser sets it with boundary automatically
+    });
+    if (!res.ok) { const d = await res.json(); throw new Error(d.detail || 'Upload failed'); }
+    closeModal();
+    showToast('Document uploaded successfully.', 'success');
+    await renderDocumentsView();
+  } catch(err) {
+    showToast(err.message || 'Upload failed.', 'error');
+  } finally {
+    btn.textContent = 'Upload Document'; btn.disabled = false;
+  }
+}
+
+function confirmDeleteDoc(docId, name) {
+  openModal('Delete Document', `
+    <p style="color:var(--text-secondary);margin-bottom:24px;line-height:1.7">
+      Delete <strong style="color:var(--text-primary)">${esc(name)}</strong>?
+      The PDF file will be permanently removed and users will no longer be able to download it.
+    </p>
+    <div class="form-actions">
+      <button class="btn-secondary" onclick="closeModal()">Cancel</button>
+      <button class="btn-danger" style="padding:9px 20px" onclick="deleteDoc('${docId}')">Delete Document</button>
+    </div>`);
+}
+
+async function deleteDoc(docId) {
+  try {
+    await api(`/documents/${docId}`, 'DELETE');
+    closeModal();
+    showToast('Document deleted.', 'info');
+    await renderDocumentsView();
+  } catch(err) {
+    showToast(err.message || 'Failed to delete.', 'error');
+  }
+}
+
+// ─── FILE SIZE FORMATTER ──────────────────────────────────────────────────────
+function formatFileSize(bytes) {
+  if (!bytes) return '';
+  if (bytes < 1024)        return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / 1024 / 1024).toFixed(1) + ' MB';
+}
