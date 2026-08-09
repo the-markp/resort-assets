@@ -1012,3 +1012,82 @@ td.asset-id {
 @media (max-width: 700px) {
   .incident-grid { grid-template-columns: 1fr; }
 }
+
+/* ─── DOCUMENTS PAGE ──────────────────────────────────────────────────── */
+.doc-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+  margin-top: 8px;
+}
+.doc-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: border-color .2s, box-shadow .2s;
+}
+.doc-card:hover { border-color: var(--gold-muted); box-shadow: var(--glow); }
+.doc-card-icon { font-size: 32px; line-height: 1; }
+.doc-card-name {
+  font-size: 15px;
+  font-weight: 400;
+  color: var(--text-primary);
+  line-height: 1.4;
+}
+.doc-card-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.6;
+  flex: 1;
+}
+.doc-card-meta {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+.doc-card-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.btn-download {
+  flex: 1;
+  background: var(--gold-faint);
+  border: 1px solid var(--gold-muted);
+  color: var(--gold-light);
+  border-radius: var(--radius);
+  padding: 8px 14px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all .2s;
+  text-align: center;
+}
+.btn-download:hover { background: var(--gold-dark); color: var(--text-inverse); }
+
+/* Upload drop zone */
+.upload-zone {
+  border: 2px dashed var(--border-light);
+  border-radius: var(--radius-lg);
+  padding: 40px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color .2s, background .2s;
+  background: var(--bg-card);
+}
+.upload-zone:hover, .upload-zone.drag-over {
+  border-color: var(--gold-muted);
+  background: var(--gold-faint);
+}
+.upload-zone-icon { font-size: 40px; display: block; margin-bottom: 12px; opacity: .5; }
+.upload-zone-text { font-size: 14px; color: var(--text-secondary); }
+.upload-zone-hint { font-size: 12px; color: var(--text-muted); margin-top: 6px; }

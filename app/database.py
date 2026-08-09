@@ -17,7 +17,14 @@ class Base(DeclarativeBase):
     pass
 
 
-engine = create_async_engine(DATABASE_URL, echo=False, pool_pre_ping=True)
+engine = create_async_engine(
+    DATABASE_URL,
+    echo=False,
+    pool_pre_ping=True,
+    pool_size=5,        # connections kept open per app instance
+    max_overflow=5,     # extra connections allowed under burst load
+    pool_timeout=30,    # seconds to wait for a free connection before erroring
+)
 AsyncSessionLocal = async_sessionmaker(engine, expire_on_commit=False)
 
 

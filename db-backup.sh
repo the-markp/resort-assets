@@ -32,3 +32,6 @@ echo "[$(date)] Old backups cleaned (kept last ${RETAIN_DAYS} days)"
 # ── 4. Log summary ────────────────────────────────────────────────────────────
 BACKUP_COUNT=$(find "$BACKUP_DIR" -name "db_*.sql.gz" | wc -l)
 echo "[$(date)] Backup complete. Total backups on disk: $BACKUP_COUNT"
+
+# sync the folder to Onedrive
+rclone sync /home/foxriver/resort-assets endonalaw-sync:GBeachResort/backups/resort-assets

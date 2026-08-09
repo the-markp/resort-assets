@@ -76,6 +76,20 @@ class Incident(Base):
     updated_at    = Column(DateTime(timezone=True), nullable=False)
 
 
+class PolicyDocument(Base):
+    __tablename__ = "policy_documents"
+    doc_id        = Column(String,  primary_key=True)
+    name          = Column(String,  nullable=False)
+    description   = Column(Text,    nullable=True)
+    filename      = Column(String,  nullable=False)   # original upload filename
+    file_path     = Column(String,  nullable=False)   # path on disk
+    file_size     = Column(Integer, nullable=True)    # bytes
+    uploaded_by   = Column(String,  nullable=True)    # user_id snapshot
+    uploader_name = Column(String,  nullable=True)    # display name snapshot
+    created_at    = Column(DateTime(timezone=True), nullable=False)
+    updated_at    = Column(DateTime(timezone=True), nullable=False)
+
+
 class IncidentComment(Base):
     __tablename__ = "incident_comments"
     comment_id  = Column(String, primary_key=True)
@@ -257,6 +271,21 @@ class IncidentOut(BaseModel):
     assigned_to:   Optional[str]
     resolution:    Optional[str]
     comments:      List[CommentOut] = []
+    created_at:    datetime
+    updated_at:    datetime
+    model_config = {"from_attributes": True}
+
+
+# ─── Policy document schemas ─────────────────────────────────────────────────
+
+class PolicyDocumentOut(BaseModel):
+    doc_id:        str
+    name:          str
+    description:   Optional[str]
+    filename:      str
+    file_size:     Optional[int]
+    uploaded_by:   Optional[str]
+    uploader_name: Optional[str]
     created_at:    datetime
     updated_at:    datetime
     model_config = {"from_attributes": True}
