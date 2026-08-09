@@ -370,7 +370,10 @@ async function renderIncidentsView() {
   el.innerHTML=`
     <div class="assets-header">
       <h2>Incident Reports</h2>
-      <button class="btn-primary" onclick="openReportIncidentModal()">⚑ Report Incident</button>
+      <div style="display:flex;gap:10px;align-items:center">
+        <button class="btn-secondary" id="exportIncidentsBtn" onclick="exportIncidentsCSV()">⬇ Export CSV</button>
+        <button class="btn-primary" onclick="openReportIncidentModal()">⚑ Report Incident</button>
+      </div>
     </div>
     ${incidents.length===0?`<div class="empty-state"><span class="empty-icon">⚑</span><p>No incidents reported. Great!</p></div>`:`
     <div style="display:flex;flex-direction:column;gap:28px">
@@ -931,4 +934,39 @@ function formatFileSize(bytes) {
   if (bytes < 1024)        return bytes + ' B';
   if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
   return (bytes / 1024 / 1024).toFixed(1) + ' MB';
+}
+
+// ─── INCIDENTS CSV EXPORT ─────────────────────────────────────────────────────
+async function exportIncidentsCSV() {
+  // Honour whatever filters are currently visible in the incidents view
+  const params = new URLSearchParams();
+  // If you add filter dropdowns to the incidents view in the future,
+  // append them here the same way as the assets export does.
+
+  const btn = document.getElementById('exportIncidentsBtn');
+  if (btn) { btn.textContent = '⏳ Exporting…'; btn.disabled = true; }
+
+  try {
+    const res = await fetch(`${API}/incidents/export/csv?${params}`, {
+      headers: { 'Authorization': `Bearer ${auth.token}` },
+    });
+    if (!res.ok) throw new Error('Export failed');
+
+    const blob  = await res.blob();
+    const url   = URL.createObjectURL(blob);
+    const a     = document.createElement('a');
+    const cd    = res.headers.get('Content-Disposition') || '';
+    const match = cd.match(/filename=([^;]+)/);
+    a.download  = match ? match[1] : 'gtracker_incidents.csv';
+    a.href      = url;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('Incidents exported successfully.', 'success');
+  } catch (err) {
+    showToast('Export failed. Please try again.', 'error');
+  } finally {
+    if (btn) { btn.textContent = '⬇ Export CSV'; btn.disabled = false; }
+  }
 }
