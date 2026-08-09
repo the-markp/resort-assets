@@ -210,14 +210,21 @@ async function refreshIncidentBadge() {
 // ─── VIEW ROUTING ─────────────────────────────────────────────────────────────
 async function showView(name) {
   state.currentView = name;
-  ['dashboard','assets','incidents','users','documents'].forEach(v => document.getElementById(`view-${v}`)?.classList.toggle('hidden', v!==name));
+  ['dashboard','assets','incidents','users','documents'].forEach(v => {
+    const el = document.getElementById(`view-${v}`);
+    if (el) el.classList.toggle('hidden', v !== name);
+  });
   const labels = {dashboard:'Dashboard',assets:'All Assets',incidents:'Incident Reports',users:'User Management',documents:'Policy Documents'};
   document.getElementById('breadcrumb').textContent = (state.currentCategory ? CATEGORY_META[state.currentCategory]?.label : null) || labels[name] || name;
-  if (name==='dashboard') await renderDashboard();
-  else if (name==='assets') await renderAssetsView();
-  else if (name==='incidents') await renderIncidentsView();
-  else if (name==='users') await renderUsersView();
-  else if (name==='documents') await renderDocumentsView();
+  try {
+    if      (name==='dashboard') await renderDashboard();
+    else if (name==='assets')    await renderAssetsView();
+    else if (name==='incidents') await renderIncidentsView();
+    else if (name==='users')     await renderUsersView();
+    else if (name==='documents') await renderDocumentsView();
+  } catch(err) {
+    console.error(`showView(${name}) error:`, err);
+  }
 }
 
 // ─── DASHBOARD ────────────────────────────────────────────────────────────────
@@ -743,7 +750,7 @@ async function renderDocumentsView() {
   const el = document.getElementById('view-documents');
   el.innerHTML = '<div class="loading">Loading documents</div>';
   let docs;
-  try { docs = await api('/documents'); }
+  try { docs = await api('/documents/'); }
   catch { el.innerHTML = `<div class="empty-state"><span class="empty-icon">⚠</span><p>Failed to load documents.</p></div>`; return; }
 
   el.innerHTML = `
