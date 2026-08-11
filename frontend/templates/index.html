@@ -76,9 +76,12 @@
       </nav>
 
       <div class="sidebar-footer">
-        <div class="current-user-info">
+        <div class="current-user-info" id="cuInfo" onclick="openChangePasswordModal()" title="Change password" style="cursor:pointer">
           <div class="cu-name" id="cuName">—</div>
-          <div class="cu-role" id="cuRole">—</div>
+          <div class="cu-role">
+            <span id="cuRole">—</span>
+            <span class="cu-change-pw">🔑 change password</span>
+          </div>
         </div>
         <button class="btn-logout" id="logoutBtn" onclick="doLogout()" title="Sign out">⏻</button>
       </div>

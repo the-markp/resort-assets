@@ -62,6 +62,7 @@ async def get_summary(db: AsyncSession = Depends(get_db), _=Depends(get_current_
     def to_dict(a):
         return {
             "asset_id":               a.asset_id,
+            "asset_number":           a.asset_number,
             "name":                   a.name,
             "category":               a.category,
             "status":                 a.status,
