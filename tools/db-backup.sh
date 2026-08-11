@@ -2,7 +2,7 @@
 # backup.sh — Daily PostgreSQL dump + Docker volume snapshot
 set -euo pipefail
 
-BACKUP_DIR="."
+BACKUP_DIR="/home/foxriver/resort-assets"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 DB_CONTAINER="gtracker_db"
 DB_USER="palma"

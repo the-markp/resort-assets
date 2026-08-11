@@ -187,3 +187,22 @@ resort-assets/
   sudo ./db-restore.sh
   sudo docker compose -f docker-compose.app.yml up -d
 
+## Mass data upload
+
+1. Install Python
+2. Install dependency
+pip install requests openpyxl
+3. Run upload script
+# Validate only (no upload)
+python upload_assets.py --file gtracker_asset_upload_template.xlsx --dry-run
+
+# Upload to local instance
+python upload_assets.py --file gtracker_asset_upload_template.xlsx
+
+# Upload to production
+python upload_assets.py --file gtracker_asset_upload_template.xlsx \
+    --url https://g.endonalaw.com
+
+# Upload valid rows, skip invalid ones
+python upload_assets.py --file gtracker_asset_upload_template.xlsx \
+    --url https://g.endonalaw.com --skip
