@@ -25,6 +25,7 @@ class User(Base):
 class Asset(Base):
     __tablename__ = "assets"
     asset_id               = Column(String,        primary_key=True)
+    asset_number           = Column(String,        nullable=True, unique=True, index=True)  # human-readable unique ID e.g. AST-00042
     name                   = Column(String,        nullable=False)
     category               = Column(String,        nullable=False, index=True)
     status                 = Column(String,        nullable=False, default="available", index=True)
@@ -153,6 +154,7 @@ IncidentStatus     = Literal["open","in_progress","resolved","closed"]
 
 
 class AssetCreate(BaseModel):
+    asset_number:           Optional[str]                = None
     name:                   str
     category:               AssetCategory
     status:                 AssetStatus                  = "available"
@@ -170,6 +172,7 @@ class AssetCreate(BaseModel):
 
 
 class AssetUpdate(BaseModel):
+    asset_number:           Optional[str]                = None
     name:                   Optional[str]                = None
     category:               Optional[AssetCategory]      = None
     status:                 Optional[AssetStatus]        = None
@@ -188,6 +191,7 @@ class AssetUpdate(BaseModel):
 
 class AssetOut(BaseModel):
     asset_id:               str
+    asset_number:           Optional[str]
     name:                   str
     category:               str
     status:                 str

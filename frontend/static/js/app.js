@@ -51,7 +51,14 @@ function isAdmin()      { return auth.user?.role==='admin'; }
 function canEdit()      { return ['admin','editor'].includes(auth.user?.role); }
 
 // ─── STATE ────────────────────────────────────────────────────────────────────
-let state = { currentView:'dashboard', currentCategory:null, filterStatus:'', filterCategory:'', searchQuery:'' };
+let state = {
+  currentView: 'dashboard', currentCategory: null,
+  filterStatus: '', filterCategory: '', searchQuery: '',
+  colFilters: {
+    asset_number: '', name: '', location: '',
+    serial_number: '', accountable_department: '', accountable_person: '',
+  },
+};
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
@@ -79,7 +86,9 @@ function applyRoleVisibility() {
   document.querySelectorAll('.admin-only').forEach(el => el.style.display = isAdmin()?'':'none');
   document.querySelectorAll('.editor-only').forEach(el => el.style.display = canEdit()?'':'none');
   document.getElementById('cuName').textContent = auth.user?.full_name||auth.user?.username||'—';
-  document.getElementById('cuRole').textContent = auth.user?.role||'—';
+  // Use cuRole span only — don't overwrite the whole div which contains the "change password" hint
+  const cuRoleSpan = document.getElementById('cuRole');
+  if (cuRoleSpan) cuRoleSpan.textContent = auth.user?.role||'—';
 }
 function bindLogin() {
   document.getElementById('loginBtn').addEventListener('click', doLogin);
@@ -295,15 +304,13 @@ async function renderDashboard() {
 async function renderAssetsView() {
   const el = document.getElementById('view-assets');
   el.innerHTML = '<div class="loading">Loading assets</div>';
-  const params=new URLSearchParams();
-  if(state.filterCategory) params.set('category',state.filterCategory);
-  if(state.filterStatus)   params.set('status',state.filterStatus);
-  if(state.searchQuery)    params.set('search',state.searchQuery);
+  const params = buildAssetParams();
   let assets;
-  try { assets=await api(`/assets?${params}`); }
+  try { assets = await api(`/assets/?${params}`); }
   catch { el.innerHTML=`<div class="empty-state"><span class="empty-icon">⚠</span><p>Failed to load assets.</p></div>`; return; }
-  const catLabel=state.currentCategory?CATEGORY_META[state.currentCategory]?.label||'Assets':'All Assets';
-  el.innerHTML=`
+  const catLabel = state.currentCategory ? CATEGORY_META[state.currentCategory]?.label||'Assets' : 'All Assets';
+
+  el.innerHTML = `
     <div class="assets-header">
       <h2>${catLabel}</h2>
       <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
@@ -314,44 +321,99 @@ async function renderAssetsView() {
             ${Object.entries(STATUS_META).map(([k,v])=>`<option value="${k}" ${state.filterStatus===k?'selected':''}>${v.label}</option>`).join('')}
           </select>
           ${!state.currentCategory?`<select class="filter-select" id="filterCategory" onchange="onFilterChange()"><option value="">All Categories</option>${Object.entries(CATEGORY_META).map(([k,v])=>`<option value="${k}" ${state.filterCategory===k?'selected':''}>${v.label}</option>`).join('')}</select>`:''}
+          <button class="btn-secondary" onclick="clearAllFilters()" title="Clear all filters" style="padding:7px 12px">✕ Clear</button>
         </div>
       </div>
     </div>
     <div class="table-wrap">
-      ${assets.length===0?`<div class="empty-state"><span class="empty-icon">◻</span><p>No assets found.</p></div>`:`
-      <table><thead><tr>
-        <th>Name</th><th>Category</th><th>Status</th><th>Department</th>
-        <th>Accountable Person</th><th>Service Life</th><th>Purchase Value</th>
-        <th>Repair Cost</th><th>Book Value</th>
-        ${canEdit()?'<th></th>':''}
-      </tr></thead><tbody>
-        ${assets.map(a=>{
-          const cat=CATEGORY_META[a.category]||{icon:'◻',label:a.category};
-          return `<tr onclick="openDetailModal('${a.asset_id}')">
-            <td class="asset-name">${cat.icon} ${esc(a.name)}</td>
-            <td>${cat.label}</td>
-            <td>${statusBadge(a.status)}</td>
-            <td>${esc(a.accountable_department||'—')}</td>
-            <td>${esc(a.accountable_person||'—')}</td>
-            <td>${a.service_life_years?a.service_life_years+' yr':'—'}</td>
-            <td>${a.purchase_value?'₱'+formatNumber(parseFloat(a.purchase_value)):'—'}</td>
-            <td style="color:var(--status-lost)">${a.repair_cost?'₱'+formatNumber(a.repair_cost):'—'}</td>
-            <td style="color:var(--gold-light)">${a.book_value!=null?'₱'+formatNumber(a.book_value):'—'}</td>
-            ${canEdit()?`<td onclick="event.stopPropagation()"><div class="table-actions">
-              <button class="btn-icon" title="Edit" onclick="openEditModal('${a.asset_id}')">✎</button>
-              <button class="btn-icon" title="Delete" onclick="confirmDelete('${a.asset_id}','${esc(a.name)}')">✕</button>
-            </div></td>`:''}
-          </tr>`;
-        }).join('')}
-      </tbody></table>`}
+      <table>
+        <thead>
+          <tr>
+            <th>Asset No.</th><th>Name</th><th>Category</th><th>Status</th>
+            <th>Location</th><th>Serial No.</th><th>Department</th>
+            <th>Accountable Person</th><th>Purchase Value</th>
+            <th>Repair Cost</th><th>Book Value</th>
+            ${canEdit()?'<th></th>':''}
+          </tr>
+          <tr class="filter-row" id="filterRow">
+            <th><input class="col-filter" id="cf_asset_number" placeholder="Filter…" oninput="onColFilterChange()" value="${esc(state.colFilters.asset_number||'')}" /></th>
+            <th><input class="col-filter" id="cf_name" placeholder="Filter…" oninput="onColFilterChange()" value="${esc(state.colFilters.name||'')}" /></th>
+            <th></th>
+            <th></th>
+            <th><input class="col-filter" id="cf_location" placeholder="Filter…" oninput="onColFilterChange()" value="${esc(state.colFilters.location||'')}" /></th>
+            <th><input class="col-filter" id="cf_serial_number" placeholder="Filter…" oninput="onColFilterChange()" value="${esc(state.colFilters.serial_number||'')}" /></th>
+            <th><input class="col-filter" id="cf_accountable_department" placeholder="Filter…" oninput="onColFilterChange()" value="${esc(state.colFilters.accountable_department||'')}" /></th>
+            <th><input class="col-filter" id="cf_accountable_person" placeholder="Filter…" oninput="onColFilterChange()" value="${esc(state.colFilters.accountable_person||'')}" /></th>
+            <th></th><th></th><th></th>
+            ${canEdit()?'<th></th>':''}
+          </tr>
+        </thead>
+        <tbody>
+          ${assets.length===0
+            ? `<tr><td colspan="${canEdit()?12:11}" style="text-align:center;padding:48px;color:var(--text-muted)">No assets match your filters.</td></tr>`
+            : assets.map(a => {
+                const cat = CATEGORY_META[a.category]||{icon:'◻',label:a.category};
+                return `<tr onclick="openDetailModal('${a.asset_id}')">
+                  <td style="font-family:var(--font-mono);font-size:11px;color:var(--gold-light)">${esc(a.asset_number||'—')}</td>
+                  <td class="asset-name">${cat.icon} ${esc(a.name)}</td>
+                  <td>${cat.label}</td>
+                  <td>${statusBadge(a.status)}</td>
+                  <td>${esc(a.location||'—')}</td>
+                  <td style="font-family:var(--font-mono);font-size:11px">${esc(a.serial_number||'—')}</td>
+                  <td>${esc(a.accountable_department||'—')}</td>
+                  <td>${esc(a.accountable_person||'—')}</td>
+                  <td>${a.purchase_value?'₱'+formatNumber(parseFloat(a.purchase_value)):'—'}</td>
+                  <td style="color:var(--status-lost)">${a.repair_cost?'₱'+formatNumber(a.repair_cost):'—'}</td>
+                  <td style="color:var(--gold-light)">${a.book_value!=null?'₱'+formatNumber(a.book_value):'—'}</td>
+                  ${canEdit()?`<td onclick="event.stopPropagation()"><div class="table-actions">
+                    <button class="btn-icon" title="Edit" onclick="openEditModal('${a.asset_id}')">✎</button>
+                    <button class="btn-icon" title="Delete" onclick="confirmDelete('${a.asset_id}','${esc(a.name)}')">✕</button>
+                  </div></td>`:''}
+                </tr>`;
+              }).join('')
+          }
+        </tbody>
+      </table>
     </div>`;
 }
 
 function onFilterChange() {
-  const s=document.getElementById('filterStatus'),c=document.getElementById('filterCategory');
-  if(s) state.filterStatus=s.value;
-  if(c) state.filterCategory=c.value;
+  const s = document.getElementById('filterStatus');
+  const c = document.getElementById('filterCategory');
+  if (s) state.filterStatus   = s.value;
+  if (c) state.filterCategory = c.value;
   renderAssetsView();
+}
+
+let _colFilterTimer;
+function onColFilterChange() {
+  clearTimeout(_colFilterTimer);
+  _colFilterTimer = setTimeout(() => {
+    const fields = ['asset_number','name','location','serial_number','accountable_department','accountable_person'];
+    fields.forEach(f => {
+      const el = document.getElementById(`cf_${f}`);
+      if (el) state.colFilters[f] = el.value.trim();
+    });
+    renderAssetsView();
+  }, 300);
+}
+
+function clearAllFilters() {
+  state.filterStatus   = '';
+  state.filterCategory = '';
+  state.searchQuery    = '';
+  document.getElementById('globalSearch').value = '';
+  Object.keys(state.colFilters).forEach(k => state.colFilters[k] = '');
+  renderAssetsView();
+}
+
+function buildAssetParams() {
+  const p = new URLSearchParams();
+  if (state.filterCategory) p.set('category', state.filterCategory);
+  if (state.filterStatus)   p.set('status',   state.filterStatus);
+  if (state.searchQuery)    p.set('search',   state.searchQuery);
+  Object.entries(state.colFilters).forEach(([k, v]) => { if (v) p.set(k, v); });
+  return p;
 }
 
 // ─── INCIDENTS VIEW ───────────────────────────────────────────────────────────
@@ -580,6 +642,7 @@ function assetForm(asset=null,prefillCat=null){
   const cat=asset?.category||prefillCat||'',st=asset?.status||'available',dep=asset?.depreciation_method||'none';
   return `
     <div class="form-grid">
+      <div class="form-group"><label class="form-label">Asset Number <span style="font-weight:300;opacity:.6">(auto-generated if blank)</span></label><input class="form-input" id="f_asset_number" value="${v('asset_number')}" placeholder="e.g. AST-00001" style="font-family:var(--font-mono)" /></div>
       <div class="form-group full"><label class="form-label">Asset Name *</label><input class="form-input" id="f_name" value="${v('name')}" placeholder="e.g. Deluxe Room 101" /></div>
       <div class="form-group"><label class="form-label">Category *</label><select class="form-select" id="f_category"><option value="">Select…</option>${Object.entries(CATEGORY_META).map(([k,m])=>`<option value="${k}" ${cat===k?'selected':''}>${m.icon} ${m.label}</option>`).join('')}</select></div>
       <div class="form-group"><label class="form-label">Status</label><select class="form-select" id="f_status">${Object.entries(STATUS_META).map(([k,m])=>`<option value="${k}" ${st===k?'selected':''}>${m.label}</option>`).join('')}</select></div>
@@ -603,6 +666,7 @@ function assetForm(asset=null,prefillCat=null){
 
 function collectAssetForm(){
   return {
+    asset_number:           document.getElementById('f_asset_number')?.value.trim()||null,
     name:                   document.getElementById('f_name')?.value.trim(),
     category:               document.getElementById('f_category')?.value,
     status:                 document.getElementById('f_status')?.value,
@@ -634,6 +698,7 @@ async function openDetailModal(assetId){
         ${canEdit()?`<div class="detail-actions"><button class="btn-secondary" onclick="closeModal();openEditModal('${a.asset_id}')">Edit</button><button class="btn-danger" onclick="closeModal();confirmDelete('${a.asset_id}','${esc(a.name)}')">Delete</button></div>`:''}
       </div>
       <div class="detail-grid">
+        <div class="detail-field"><div class="detail-field-label">Asset Number</div><div class="detail-field-value" style="font-family:var(--font-mono);font-size:13px;color:var(--gold-light)">${esc(a.asset_number||'—')}</div></div>
         <div class="detail-field"><div class="detail-field-label">Category</div><div class="detail-field-value">${cat.label}</div></div>
         <div class="detail-field"><div class="detail-field-label">Location</div><div class="detail-field-value">${esc(a.location||'—')}</div></div>
         <div class="detail-field"><div class="detail-field-label">Serial Number</div><div class="detail-field-value" style="font-family:var(--font-mono);font-size:12px">${esc(a.serial_number||'—')}</div></div>
@@ -708,10 +773,7 @@ function closeModal(){document.getElementById('modalOverlay').classList.add('hid
 function toggleRateField(){const m=document.getElementById('f_depreciation_method')?.value,w=document.getElementById('rateFieldWrap');if(w) w.style.display=m==='custom_rate'?'':' none';}
 
 async function exportCSV(){
-  const params=new URLSearchParams();
-  if(state.filterCategory) params.set('category',state.filterCategory);
-  if(state.filterStatus)   params.set('status',state.filterStatus);
-  if(state.searchQuery)    params.set('search',state.searchQuery);
+  const params = buildAssetParams();
   const btn=document.getElementById('exportCsvBtn');
   if(btn){btn.textContent='⏳ Exporting…';btn.disabled=true;}
   try{
@@ -968,5 +1030,99 @@ async function exportIncidentsCSV() {
     showToast('Export failed. Please try again.', 'error');
   } finally {
     if (btn) { btn.textContent = '⬇ Export CSV'; btn.disabled = false; }
+  }
+}
+
+// ─── CHANGE PASSWORD ──────────────────────────────────────────────────────────
+function openChangePasswordModal() {
+  openModal('Change Password', `
+    <div class="form-grid">
+      <div class="form-group full">
+        <label class="form-label">Current Password *</label>
+        <input class="form-input" id="cp_current" type="password"
+               placeholder="Enter your current password" autocomplete="current-password" />
+      </div>
+      <div class="form-group full">
+        <label class="form-label">New Password *</label>
+        <input class="form-input" id="cp_new" type="password"
+               placeholder="Minimum 6 characters" autocomplete="new-password"
+               oninput="checkPasswordStrength(this.value)" />
+        <div id="cp_strength" style="margin-top:6px;font-family:var(--font-mono);font-size:10px;color:var(--text-muted)"></div>
+      </div>
+      <div class="form-group full">
+        <label class="form-label">Confirm New Password *</label>
+        <input class="form-input" id="cp_confirm" type="password"
+               placeholder="Re-enter new password" autocomplete="new-password" />
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn-secondary" onclick="closeModal()">Cancel</button>
+      <button class="btn-primary" id="cpSubmitBtn">Update Password</button>
+    </div>`);
+
+  document.getElementById('cp_current').focus();
+  document.getElementById('cpSubmitBtn').addEventListener('click', submitChangePassword);
+  // Allow Enter key on last field to submit
+  document.getElementById('cp_confirm').addEventListener('keydown', e => {
+    if (e.key === 'Enter') submitChangePassword();
+  });
+}
+
+function checkPasswordStrength(pw) {
+  const el = document.getElementById('cp_strength');
+  if (!el) return;
+  if (!pw) { el.textContent = ''; return; }
+  if (pw.length < 6)  { el.style.color = 'var(--status-lost)';        el.textContent = '⚠ Too short (min 6 characters)'; return; }
+  if (pw.length < 10) { el.style.color = 'var(--status-maintenance)'; el.textContent = '▲ Fair'; return; }
+  const hasUpper  = /[A-Z]/.test(pw);
+  const hasLower  = /[a-z]/.test(pw);
+  const hasNumber = /[0-9]/.test(pw);
+  const hasSymbol = /[^A-Za-z0-9]/.test(pw);
+  const score = [hasUpper, hasLower, hasNumber, hasSymbol].filter(Boolean).length;
+  if (score >= 3) { el.style.color = 'var(--status-available)'; el.textContent = '✓ Strong'; }
+  else            { el.style.color = 'var(--status-maintenance)'; el.textContent = '▲ Moderate — add numbers or symbols for a stronger password'; }
+}
+
+async function submitChangePassword() {
+  const current = document.getElementById('cp_current')?.value;
+  const newPw   = document.getElementById('cp_new')?.value;
+  const confirm = document.getElementById('cp_confirm')?.value;
+  const btn     = document.getElementById('cpSubmitBtn');
+
+  if (!current) { showToast('Current password is required.', 'error'); return; }
+  if (!newPw)   { showToast('New password is required.', 'error'); return; }
+  if (newPw.length < 6) { showToast('New password must be at least 6 characters.', 'error'); return; }
+  if (newPw !== confirm) { showToast('New passwords do not match.', 'error'); return; }
+  if (current === newPw) { showToast('New password must be different from your current password.', 'error'); return; }
+
+  btn.textContent = 'Updating…'; btn.disabled = true;
+
+  // Verify current password by attempting a login
+  try {
+    const verifyRes = await fetch(`${API}/auth/login`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body:    new URLSearchParams({ username: auth.user.username, password: current }),
+    });
+    if (!verifyRes.ok) {
+      showToast('Current password is incorrect.', 'error');
+      btn.textContent = 'Update Password'; btn.disabled = false;
+      return;
+    }
+  } catch {
+    showToast('Could not verify current password. Check your connection.', 'error');
+    btn.textContent = 'Update Password'; btn.disabled = false;
+    return;
+  }
+
+  // Update via the users API
+  try {
+    await api(`/users/${auth.user.user_id}`, 'PUT', { password: newPw });
+    closeModal();
+    showToast('Password updated successfully.', 'success');
+  } catch (err) {
+    showToast(err.message || 'Failed to update password.', 'error');
+  } finally {
+    btn.textContent = 'Update Password'; btn.disabled = false;
   }
 }

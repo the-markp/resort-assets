@@ -1091,3 +1091,43 @@ td.asset-id {
 .upload-zone-icon { font-size: 40px; display: block; margin-bottom: 12px; opacity: .5; }
 .upload-zone-text { font-size: 14px; color: var(--text-secondary); }
 .upload-zone-hint { font-size: 12px; color: var(--text-muted); margin-top: 6px; }
+
+/* ─── CHANGE PASSWORD HINT IN SIDEBAR FOOTER ──────────────────────────── */
+.cu-role {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+}
+.cu-change-pw {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--gold-muted);
+  letter-spacing: .05em;
+  opacity: 0;
+  transition: opacity .2s;
+  white-space: nowrap;
+}
+.current-user-info:hover .cu-change-pw { opacity: 1; }
+
+/* ─── PER-COLUMN FILTER ROW ───────────────────────────────────────────── */
+.filter-row th {
+  padding: 6px 8px;
+  background: var(--bg-surface);
+  border-bottom: 2px solid var(--gold-muted);
+}
+.col-filter {
+  width: 100%;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-primary);
+  padding: 5px 8px;
+  font-family: var(--font-body);
+  font-size: 11px;
+  outline: none;
+  transition: border-color .2s;
+  box-sizing: border-box;
+}
+.col-filter:focus { border-color: var(--gold-muted); }
+.col-filter::placeholder { color: var(--text-muted); font-size: 10px; }
