@@ -55,10 +55,12 @@ COLUMN_MAP = {
     "service_life_years":     "service_life_years",
     "service life years":     "service_life_years",
     "service life (years)":   "service_life_years",
+    "service life (yrs)":     "service_life_years",   # matches template header
     "depreciation_method":    "depreciation_method",
     "depreciation method":    "depreciation_method",
     "depreciation_rate":      "depreciation_rate",
     "depreciation rate":      "depreciation_rate",
+    "depreciation rate (%)":  "depreciation_rate",    # matches template header
     "repair_cost":            "repair_cost",
     "repair cost":            "repair_cost",
     "notes":                  "notes",

@@ -10,3 +10,4 @@ docker-compose*.yml
 tests
 *.egg-info
 dist
+.DS_Store
