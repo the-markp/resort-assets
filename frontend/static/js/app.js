@@ -1169,14 +1169,15 @@ async function submitChangePassword() {
 // ─── RESPONSIBLE USER / CONFIRM HELPERS ──────────────────────────────────────
 
 function canConfirm(asset) {
-  // The linked responsible user can confirm; admins can also toggle
-  if (!asset.responsible_user_id) return false;
-  return auth.user?.user_id === asset.responsible_user_id ||
-         auth.user?.role    === 'admin';
+  // Responsible user, editors, and admins can all toggle confirmed
+  // (no responsible_user_id required — editors/admins can confirm any asset)
+  if (auth.user?.role === 'admin' || auth.user?.role === 'editor') return true;
+  // Viewers can only confirm if they are the responsible user
+  return !!asset.responsible_user_id &&
+         auth.user?.user_id === asset.responsible_user_id;
 }
 
 function confirmedBadge(confirmed, responsibleUserId) {
-  if (!responsibleUserId) return '<span style="color:var(--text-muted);font-size:11px">—</span>';
   if (confirmed) return '<span style="background:#1a2e22;color:#7eb894;border:1px solid #2a4a36;border-radius:20px;padding:2px 10px;font-size:11px;font-family:var(--font-mono)">✓ Confirmed</span>';
   return '<span style="background:#2e2010;color:#e8b47a;border:1px solid #4a3518;border-radius:20px;padding:2px 10px;font-size:11px;font-family:var(--font-mono)">⏳ Pending</span>';
 }

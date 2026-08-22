@@ -293,16 +293,13 @@ async def confirm_asset(
     if not asset:
         raise HTTPException(status_code=404, detail="Asset not found")
 
-    if not asset.responsible_user_id:
-        raise HTTPException(status_code=400, detail="No responsible user assigned to this asset")
-
-    # Only the responsible user or an admin can toggle
-    is_responsible = current_user.user_id == asset.responsible_user_id
-    is_admin       = current_user.role    == "admin"
-    if not is_responsible and not is_admin:
+    # Responsible user, editors, and admins can toggle confirmed
+    is_responsible = asset.responsible_user_id and current_user.user_id == asset.responsible_user_id
+    is_editor      = current_user.role in ("admin", "editor")
+    if not is_responsible and not is_editor:
         raise HTTPException(
             status_code=403,
-            detail="Only the responsible person or an admin can confirm this asset"
+            detail="Only the responsible person, an editor, or an admin can confirm this asset"
         )
 
     asset.confirmed   = not asset.confirmed
