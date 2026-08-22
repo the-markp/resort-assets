@@ -171,7 +171,7 @@ function bindApp() {
   const logoutBtn = document.getElementById('logoutBtn');
   if (logoutBtn) logoutBtn.addEventListener('click', doLogout);
   document.getElementById('sidebarToggle').addEventListener('click', () => document.getElementById('sidebar').classList.toggle('open'));
-  document.getElementById('addAssetBtn').addEventListener('click', () => openAddModal());
+  document.getElementById('addAssetBtn').addEventListener('click', async () => { await openAddModal(); });
   document.getElementById('modalClose').addEventListener('click', closeModal);
   document.getElementById('modalOverlay').addEventListener('click', e => { if(e.target===document.getElementById('modalOverlay')) closeModal(); });
   document.addEventListener('keydown', e => { if(e.key==='Escape') closeModal(); });
@@ -662,13 +662,18 @@ function assetForm(asset=null,prefillCat=null){
       <div class="form-group"><label class="form-label">Location</label><input class="form-input" id="f_location" value="${v('location')}" placeholder="e.g. Building A, Floor 2" /></div>
       <div class="form-group"><label class="form-label">Serial Number</label><input class="form-input" id="f_serial_number" value="${v('serial_number')}" /></div>
       <div class="form-group"><label class="form-label">Accountable Department</label><input class="form-input" id="f_accountable_department" value="${v('accountable_department')}" /></div>
-      <div class="form-group">
-        <label class="form-label">Responsible User <span style="font-weight:300;opacity:.6">(linked account)</span></label>
+      <div class="form-group" id="responsiblePersonWrap">
+        <label class="form-label">Responsible Person</label>
         <select class="form-select" id="f_responsible_user_id" onchange="onResponsibleUserChange()">
-          <option value="">— Not linked —</option>
+          <option value="">— Not linked to an account —</option>
+          <option value="__manual__">✎ Enter name manually…</option>
         </select>
+        <input class="form-input" id="f_accountable_person"
+          value="${v('accountable_person')}"
+          placeholder="Enter name…"
+          style="margin-top:6px;${asset?.responsible_user_id||(!asset&&false)?'display:none':(!asset?.responsible_user_id&&asset?.accountable_person?'':'display:none')}"
+          oninput="onManualPersonInput()" />
       </div>
-      <div class="form-group"><label class="form-label">Accountable Person <span style="font-weight:300;opacity:.6">(free text / auto-filled)</span></label><input class="form-input" id="f_accountable_person" value="${v('accountable_person')}" placeholder="Auto-filled when user is selected" /></div>
       <div class="form-group"><label class="form-label">Purchase Date</label><input class="form-input" id="f_purchase_date" type="date" value="${v('purchase_date')}" /></div>
       <div class="form-group"><label class="form-label">Purchase Value (₱)</label><input class="form-input" id="f_purchase_value" type="number" value="${v('purchase_value')}" placeholder="0" /></div>
       <div class="form-group"><label class="form-label">Service Life (years)</label><input class="form-input" id="f_service_life_years" type="number" min="1" value="${asset?.service_life_years||''}" /></div>
@@ -732,8 +737,10 @@ async function openDetailModal(assetId){
         <div class="detail-field">
           <div class="detail-field-label">Responsible Person</div>
           <div class="detail-field-value">
-            ${esc(a.responsible_user_name||a.accountable_person||'—')}
-            ${a.responsible_user_id ? `<span style="font-family:var(--font-mono);font-size:9px;color:var(--text-muted);margin-left:6px">linked</span>` : ''}
+            ${esc(a.responsible_user_name || a.accountable_person || '—')}
+            ${a.responsible_user_id
+              ? `<span style="font-family:var(--font-mono);font-size:9px;color:var(--gold-muted);margin-left:6px;background:var(--gold-faint);padding:1px 6px;border-radius:10px">● account linked</span>`
+              : (a.accountable_person ? `<span style="font-family:var(--font-mono);font-size:9px;color:var(--text-muted);margin-left:6px">manual entry</span>` : '')}
           </div>
         </div>
         <div class="detail-field">
@@ -1187,53 +1194,101 @@ async function toggleConfirm(assetId) {
   }
 }
 
-// Auto-fill accountable_person when a responsible user is selected
-async function onResponsibleUserChange() {
+// Handle Responsible Person merged field change
+function onResponsibleUserChange() {
   const sel   = document.getElementById('f_responsible_user_id');
   const input = document.getElementById('f_accountable_person');
   if (!sel || !input) return;
-  const userId = sel.value;
-  if (!userId) return;
-  // Find the selected option's display text and extract name
-  const opt = sel.options[sel.selectedIndex];
-  if (opt && opt.dataset.name) {
-    input.value = opt.dataset.name;
+
+  const val = sel.value;
+
+  if (!val) {
+    // "Not linked" — hide manual input, clear it
+    input.style.display = 'none';
+    input.value = '';
+  } else if (val === '__manual__') {
+    // Show manual text input, clear it for fresh entry
+    input.style.display = '';
+    input.value = '';
+    input.focus();
+  } else {
+    // A real user selected — auto-fill name, hide manual input
+    const opt = sel.options[sel.selectedIndex];
+    if (opt?.dataset.name) input.value = opt.dataset.name;
+    input.style.display = 'none';
+  }
+}
+
+function onManualPersonInput() {
+  // Keep the __manual__ option selected while user types
+  const sel = document.getElementById('f_responsible_user_id');
+  if (sel && sel.value !== '__manual__') {
+    sel.value = '__manual__';
   }
 }
 
 // Populate the responsible user dropdown in the asset form
-async function populateUserPicker(selectedUserId) {
-  const sel = document.getElementById('f_responsible_user_id');
+async function populateUserPicker(selectedUserId, existingPersonName) {
+  const sel   = document.getElementById('f_responsible_user_id');
+  const input = document.getElementById('f_accountable_person');
   if (!sel) return;
+
   try {
     const users = await api('/users/picker');
-    // Clear existing options except the first (— Not linked —)
-    while (sel.options.length > 1) sel.remove(1);
+
+    // Rebuild options
+    sel.innerHTML = `
+      <option value="">— Not linked to an account —</option>
+      <option value="__manual__">✎ Enter name manually…</option>`;
+
     users.forEach(u => {
-      const opt      = document.createElement('option');
-      opt.value      = u.user_id;
-      opt.textContent = `${u.full_name || u.username} (${u.role})`;
+      const opt        = document.createElement('option');
+      opt.value        = u.user_id;
+      opt.textContent  = `${u.full_name || u.username} (${u.role})`;
       opt.dataset.name = u.full_name || u.username;
       if (u.user_id === selectedUserId) opt.selected = true;
       sel.appendChild(opt);
     });
-  } catch { /* picker failure is non-fatal */ }
+
+    if (input) {
+      if (selectedUserId) {
+        // Linked to a user — show their name, hide text input
+        const matched = users.find(u => u.user_id === selectedUserId);
+        if (matched) input.value = matched.full_name || matched.username;
+        input.style.display = 'none';
+      } else if (existingPersonName) {
+        // Has a free-text name but no linked user — switch to manual mode
+        sel.value = '__manual__';
+        input.value = existingPersonName;
+        input.style.display = '';
+      } else {
+        // Nothing set
+        input.style.display = 'none';
+        input.value = '';
+      }
+    }
+  } catch(e) {
+    console.warn('Could not load user picker:', e);
+  }
 }
 
 // Override openAddModal and openEditModal to populate user picker after render
 const _origOpenAddModal  = openAddModal;
 const _origOpenEditModal = openEditModal;
 
-function openAddModal() {
+async function openAddModal() {
   _origOpenAddModal();
-  setTimeout(() => populateUserPicker(null), 0);
+  await populateUserPicker(null, null);
 }
 
 async function openEditModal(assetId) {
   const asset = await api(`/assets/${assetId}`);
-  // Call original logic inline to keep asset available for picker
   openModal('Edit Asset', assetForm(asset));
-  setTimeout(() => populateUserPicker(asset.responsible_user_id), 0);
+
+  // Await picker population so the correct user is selected BEFORE
+  // the user can click Save — avoids the dropdown resetting to empty
+  await populateUserPicker(asset.responsible_user_id, asset.accountable_person);
+
   document.getElementById('assetFormSubmit').addEventListener('click', async () => {
     const data = collectAssetForm();
     try {
