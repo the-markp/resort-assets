@@ -1131,3 +1131,19 @@ td.asset-id {
 }
 .col-filter:focus { border-color: var(--gold-muted); }
 .col-filter::placeholder { color: var(--text-muted); font-size: 10px; }
+
+/* ─── MY ASSETS SHORTCUT BUTTON ──────────────────────────────────────── */
+.btn-my-assets {
+  background: var(--gold-faint);
+  border: 1px solid var(--gold-muted);
+  color: var(--gold-light);
+  border-radius: var(--radius);
+  padding: 7px 14px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all .2s;
+  white-space: nowrap;
+}
+.btn-my-assets:hover { background: var(--gold-dark); color: var(--text-inverse); }
+.btn-my-assets.active { background: var(--gold-dark); color: var(--text-inverse); }

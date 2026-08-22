@@ -38,7 +38,9 @@ class Asset(Base):
     depreciation_rate      = Column(Numeric(7, 4), nullable=True)
     repair_cost            = Column(Numeric(14, 2),nullable=True)   # subtracted from book value
     accountable_department = Column(String,        nullable=True)
-    accountable_person     = Column(String,        nullable=True)
+    accountable_person     = Column(String,        nullable=True)   # free-text snapshot
+    responsible_user_id    = Column(String,        ForeignKey("users.user_id", ondelete="SET NULL"), nullable=True, index=True)
+    confirmed              = Column(Boolean,       nullable=False, default=False)
     notes                  = Column(Text,          nullable=True)
     created_at             = Column(DateTime(timezone=True), nullable=False)
     updated_at             = Column(DateTime(timezone=True), nullable=False)
@@ -168,6 +170,7 @@ class AssetCreate(BaseModel):
     repair_cost:            Optional[float]              = None
     accountable_department: Optional[str]                = None
     accountable_person:     Optional[str]                = None
+    responsible_user_id:    Optional[str]                = None
     notes:                  Optional[str]                = None
 
 
@@ -186,6 +189,7 @@ class AssetUpdate(BaseModel):
     repair_cost:            Optional[float]              = None
     accountable_department: Optional[str]                = None
     accountable_person:     Optional[str]                = None
+    responsible_user_id:    Optional[str]                = None
     notes:                  Optional[str]                = None
 
 
@@ -205,6 +209,9 @@ class AssetOut(BaseModel):
     repair_cost:            Optional[float]
     accountable_department: Optional[str]
     accountable_person:     Optional[str]
+    responsible_user_id:    Optional[str]
+    responsible_user_name:  Optional[str] = None   # resolved at serialisation
+    confirmed:              bool
     notes:                  Optional[str]
     book_value:             Optional[float] = None
     created_at:             datetime
@@ -212,13 +219,20 @@ class AssetOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
-def asset_to_out(a) -> AssetOut:
+def asset_to_out(a, users_map: dict = None) -> AssetOut:
     obj = AssetOut.model_validate(a)
     obj.book_value = compute_book_value(a)
     if obj.depreciation_rate is not None:
         obj.depreciation_rate = float(obj.depreciation_rate)
     if obj.repair_cost is not None:
         obj.repair_cost = float(obj.repair_cost)
+    if obj.confirmed is None:
+        obj.confirmed = False
+    # Resolve responsible user display name
+    if a.responsible_user_id and users_map:
+        u = users_map.get(a.responsible_user_id)
+        if u:
+            obj.responsible_user_name = u.full_name or u.username
     return obj
 
 

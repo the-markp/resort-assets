@@ -7,7 +7,7 @@ import uuid
 
 from app.database import get_db
 from app.models import User, UserCreate, UserUpdate, UserOut
-from app.auth import hash_password, require_admin, get_current_user
+from app.auth import hash_password, require_admin, get_current_user, get_current_user
 
 router = APIRouter()
 
@@ -18,6 +18,28 @@ async def list_users(
     _=Depends(require_admin),
 ):
     result = await db.execute(select(User).order_by(User.created_at))
+    return result.scalars().all()
+
+
+class UserPickerItem(BaseModel):
+    user_id:   str
+    username:  str
+    full_name: Optional[str]
+    role:      str
+    model_config = {"from_attributes": True}
+
+
+@router.get("/picker", response_model=List[UserPickerItem])
+async def list_users_for_picker(
+    db: AsyncSession = Depends(get_db),
+    _=Depends(get_current_user),   # any logged-in user can fetch this
+):
+    """Lightweight endpoint for populating responsible-user dropdowns."""
+    result = await db.execute(
+        select(User)
+        .where(User.is_active == True)
+        .order_by(User.full_name, User.username)
+    )
     return result.scalars().all()
 
 

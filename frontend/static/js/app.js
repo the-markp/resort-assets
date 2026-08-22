@@ -54,6 +54,7 @@ function canEdit()      { return ['admin','editor'].includes(auth.user?.role); }
 let state = {
   currentView: 'dashboard', currentCategory: null,
   filterStatus: '', filterCategory: '', searchQuery: '',
+  filterMyAssets: false,
   colFilters: {
     asset_number: '', name: '', location: '',
     serial_number: '', accountable_department: '', accountable_person: '',
@@ -315,6 +316,7 @@ async function renderAssetsView() {
       <h2>${catLabel}</h2>
       <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
         <button class="btn-secondary" id="exportCsvBtn" onclick="exportCSV()">⬇ Export CSV</button>
+        <button class="btn-my-assets" id="myAssetsBtn" onclick="toggleMyAssets()" title="Show only assets assigned to me">👤 My Assets</button>
         <div class="assets-filters">
           <select class="filter-select" id="filterStatus" onchange="onFilterChange()">
             <option value="">All Statuses</option>
@@ -331,7 +333,7 @@ async function renderAssetsView() {
           <tr>
             <th>Asset No.</th><th>Name</th><th>Category</th><th>Status</th>
             <th>Location</th><th>Serial No.</th><th>Department</th>
-            <th>Accountable Person</th><th>Purchase Value</th>
+            <th>Responsible Person</th><th>Confirmed</th><th>Purchase Value</th>
             <th>Repair Cost</th><th>Book Value</th>
             ${canEdit()?'<th></th>':''}
           </tr>
@@ -350,7 +352,7 @@ async function renderAssetsView() {
         </thead>
         <tbody>
           ${assets.length===0
-            ? `<tr><td colspan="${canEdit()?12:11}" style="text-align:center;padding:48px;color:var(--text-muted)">No assets match your filters.</td></tr>`
+            ? `<tr><td colspan="${canEdit()?14:13}" style="text-align:center;padding:48px;color:var(--text-muted)">No assets match your filters.</td></tr>`
             : assets.map(a => {
                 const cat = CATEGORY_META[a.category]||{icon:'◻',label:a.category};
                 return `<tr onclick="openDetailModal('${a.asset_id}')">
@@ -361,7 +363,8 @@ async function renderAssetsView() {
                   <td>${esc(a.location||'—')}</td>
                   <td style="font-family:var(--font-mono);font-size:11px">${esc(a.serial_number||'—')}</td>
                   <td>${esc(a.accountable_department||'—')}</td>
-                  <td>${esc(a.accountable_person||'—')}</td>
+                  <td>${esc(a.responsible_user_name||a.accountable_person||'—')}</td>
+                  <td>${confirmedBadge(a.confirmed, a.responsible_user_id)}</td>
                   <td>${a.purchase_value?'₱'+formatNumber(parseFloat(a.purchase_value)):'—'}</td>
                   <td style="color:var(--status-lost)">${a.repair_cost?'₱'+formatNumber(a.repair_cost):'—'}</td>
                   <td style="color:var(--gold-light)">${a.book_value!=null?'₱'+formatNumber(a.book_value):'—'}</td>
@@ -402,6 +405,8 @@ function clearAllFilters() {
   state.filterStatus   = '';
   state.filterCategory = '';
   state.searchQuery    = '';
+  state.filterMyAssets = false;
+  const myBtn = document.getElementById('myAssetsBtn'); if(myBtn) myBtn.classList.remove('active');
   document.getElementById('globalSearch').value = '';
   Object.keys(state.colFilters).forEach(k => state.colFilters[k] = '');
   renderAssetsView();
@@ -409,11 +414,19 @@ function clearAllFilters() {
 
 function buildAssetParams() {
   const p = new URLSearchParams();
-  if (state.filterCategory) p.set('category', state.filterCategory);
-  if (state.filterStatus)   p.set('status',   state.filterStatus);
-  if (state.searchQuery)    p.set('search',   state.searchQuery);
+  if (state.filterCategory)  p.set('category',            state.filterCategory);
+  if (state.filterStatus)    p.set('status',              state.filterStatus);
+  if (state.searchQuery)     p.set('search',              state.searchQuery);
+  if (state.filterMyAssets)  p.set('responsible_user_id', auth.user?.user_id || '');
   Object.entries(state.colFilters).forEach(([k, v]) => { if (v) p.set(k, v); });
   return p;
+}
+
+function toggleMyAssets() {
+  state.filterMyAssets = !state.filterMyAssets;
+  const btn = document.getElementById('myAssetsBtn');
+  if (btn) btn.classList.toggle('active', state.filterMyAssets);
+  renderAssetsView();
 }
 
 // ─── INCIDENTS VIEW ───────────────────────────────────────────────────────────
@@ -649,7 +662,13 @@ function assetForm(asset=null,prefillCat=null){
       <div class="form-group"><label class="form-label">Location</label><input class="form-input" id="f_location" value="${v('location')}" placeholder="e.g. Building A, Floor 2" /></div>
       <div class="form-group"><label class="form-label">Serial Number</label><input class="form-input" id="f_serial_number" value="${v('serial_number')}" /></div>
       <div class="form-group"><label class="form-label">Accountable Department</label><input class="form-input" id="f_accountable_department" value="${v('accountable_department')}" /></div>
-      <div class="form-group"><label class="form-label">Accountable Person</label><input class="form-input" id="f_accountable_person" value="${v('accountable_person')}" /></div>
+      <div class="form-group">
+        <label class="form-label">Responsible User <span style="font-weight:300;opacity:.6">(linked account)</span></label>
+        <select class="form-select" id="f_responsible_user_id" onchange="onResponsibleUserChange()">
+          <option value="">— Not linked —</option>
+        </select>
+      </div>
+      <div class="form-group"><label class="form-label">Accountable Person <span style="font-weight:300;opacity:.6">(free text / auto-filled)</span></label><input class="form-input" id="f_accountable_person" value="${v('accountable_person')}" placeholder="Auto-filled when user is selected" /></div>
       <div class="form-group"><label class="form-label">Purchase Date</label><input class="form-input" id="f_purchase_date" type="date" value="${v('purchase_date')}" /></div>
       <div class="form-group"><label class="form-label">Purchase Value (₱)</label><input class="form-input" id="f_purchase_value" type="number" value="${v('purchase_value')}" placeholder="0" /></div>
       <div class="form-group"><label class="form-label">Service Life (years)</label><input class="form-input" id="f_service_life_years" type="number" min="1" value="${asset?.service_life_years||''}" /></div>
@@ -710,7 +729,20 @@ async function openDetailModal(assetId){
         <div class="detail-field"><div class="detail-field-label">Repair Cost</div><div class="detail-field-value" style="color:var(--status-lost)">${a.repair_cost!=null?'₱'+formatNumber(a.repair_cost):'—'}</div></div>
         <div class="detail-field"><div class="detail-field-label">Book Value</div><div class="detail-field-value" style="color:var(--gold-light);font-family:var(--font-display);font-size:18px">${a.book_value!=null?'₱'+formatNumber(a.book_value):'—'}</div></div>
         <div class="detail-field"><div class="detail-field-label">Accountable Department</div><div class="detail-field-value">${esc(a.accountable_department||'—')}</div></div>
-        <div class="detail-field"><div class="detail-field-label">Accountable Person</div><div class="detail-field-value">${esc(a.accountable_person||'—')}</div></div>
+        <div class="detail-field">
+          <div class="detail-field-label">Responsible Person</div>
+          <div class="detail-field-value">
+            ${esc(a.responsible_user_name||a.accountable_person||'—')}
+            ${a.responsible_user_id ? `<span style="font-family:var(--font-mono);font-size:9px;color:var(--text-muted);margin-left:6px">linked</span>` : ''}
+          </div>
+        </div>
+        <div class="detail-field">
+          <div class="detail-field-label">Custody Confirmed</div>
+          <div class="detail-field-value" style="display:flex;align-items:center;gap:10px">
+            ${confirmedBadge(a.confirmed, a.responsible_user_id)}
+            ${canConfirm(a) ? `<button class="btn-secondary" style="padding:5px 12px;font-size:12px" onclick="toggleConfirm('${a.asset_id}')">${a.confirmed ? 'Unconfirm' : 'Confirm Custody'}</button>` : ''}
+          </div>
+        </div>
         <div class="detail-field"><div class="detail-field-label">Last Updated</div><div class="detail-field-value" style="font-size:12px;color:var(--text-muted)">${a.updated_at?new Date(a.updated_at).toLocaleString():'—'}</div></div>
         ${a.notes?`<div class="detail-field full" style="grid-column:1/-1"><div class="detail-field-label">Notes</div><div class="detail-notes">${esc(a.notes)}</div></div>`:''}
       </div>
@@ -1125,4 +1157,90 @@ async function submitChangePassword() {
   } finally {
     btn.textContent = 'Update Password'; btn.disabled = false;
   }
+}
+
+// ─── RESPONSIBLE USER / CONFIRM HELPERS ──────────────────────────────────────
+
+function canConfirm(asset) {
+  // The linked responsible user can confirm; admins can also toggle
+  if (!asset.responsible_user_id) return false;
+  return auth.user?.user_id === asset.responsible_user_id ||
+         auth.user?.role    === 'admin';
+}
+
+function confirmedBadge(confirmed, responsibleUserId) {
+  if (!responsibleUserId) return '<span style="color:var(--text-muted);font-size:11px">—</span>';
+  if (confirmed) return '<span style="background:#1a2e22;color:#7eb894;border:1px solid #2a4a36;border-radius:20px;padding:2px 10px;font-size:11px;font-family:var(--font-mono)">✓ Confirmed</span>';
+  return '<span style="background:#2e2010;color:#e8b47a;border:1px solid #4a3518;border-radius:20px;padding:2px 10px;font-size:11px;font-family:var(--font-mono)">⏳ Pending</span>';
+}
+
+async function toggleConfirm(assetId) {
+  try {
+    await api(`/assets/${assetId}/confirm`, 'PATCH');
+    showToast('Custody confirmation updated.', 'success');
+    // Refresh the detail modal in place
+    await openDetailModal(assetId);
+    // Also refresh the table in the background
+    if (state.currentView === 'assets') renderAssetsView();
+  } catch(err) {
+    showToast(err.message || 'Failed to update confirmation.', 'error');
+  }
+}
+
+// Auto-fill accountable_person when a responsible user is selected
+async function onResponsibleUserChange() {
+  const sel   = document.getElementById('f_responsible_user_id');
+  const input = document.getElementById('f_accountable_person');
+  if (!sel || !input) return;
+  const userId = sel.value;
+  if (!userId) return;
+  // Find the selected option's display text and extract name
+  const opt = sel.options[sel.selectedIndex];
+  if (opt && opt.dataset.name) {
+    input.value = opt.dataset.name;
+  }
+}
+
+// Populate the responsible user dropdown in the asset form
+async function populateUserPicker(selectedUserId) {
+  const sel = document.getElementById('f_responsible_user_id');
+  if (!sel) return;
+  try {
+    const users = await api('/users/picker');
+    // Clear existing options except the first (— Not linked —)
+    while (sel.options.length > 1) sel.remove(1);
+    users.forEach(u => {
+      const opt      = document.createElement('option');
+      opt.value      = u.user_id;
+      opt.textContent = `${u.full_name || u.username} (${u.role})`;
+      opt.dataset.name = u.full_name || u.username;
+      if (u.user_id === selectedUserId) opt.selected = true;
+      sel.appendChild(opt);
+    });
+  } catch { /* picker failure is non-fatal */ }
+}
+
+// Override openAddModal and openEditModal to populate user picker after render
+const _origOpenAddModal  = openAddModal;
+const _origOpenEditModal = openEditModal;
+
+function openAddModal() {
+  _origOpenAddModal();
+  setTimeout(() => populateUserPicker(null), 0);
+}
+
+async function openEditModal(assetId) {
+  const asset = await api(`/assets/${assetId}`);
+  // Call original logic inline to keep asset available for picker
+  openModal('Edit Asset', assetForm(asset));
+  setTimeout(() => populateUserPicker(asset.responsible_user_id), 0);
+  document.getElementById('assetFormSubmit').addEventListener('click', async () => {
+    const data = collectAssetForm();
+    try {
+      await api(`/assets/${assetId}`, 'PUT', data);
+      closeModal();
+      showToast('Asset updated.', 'success');
+      await (state.currentView === 'assets' ? renderAssetsView() : renderDashboard());
+    } catch(e) { showToast(e.message || 'Failed.', 'error'); }
+  });
 }
