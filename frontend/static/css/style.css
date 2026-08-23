@@ -511,10 +511,17 @@ option { background: var(--bg-card); }
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  overflow: hidden;
+  overflow-x: auto;   /* show horizontal scrollbar when table is wider than viewport */
+  overflow-y: hidden;
 }
+/* Style the scrollbar so it's visible on webkit browsers */
+.table-wrap::-webkit-scrollbar { height: 6px; }
+.table-wrap::-webkit-scrollbar-track { background: var(--bg-elevated); }
+.table-wrap::-webkit-scrollbar-thumb { background: var(--gold-muted); border-radius: 3px; }
+.table-wrap::-webkit-scrollbar-thumb:hover { background: var(--gold); }
 table {
   width: 100%;
+  min-width: 900px;   /* forces scrollbar when viewport is narrower */
   border-collapse: collapse;
 }
 thead {

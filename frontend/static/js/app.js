@@ -331,8 +331,8 @@ async function renderAssetsView() {
       <table>
         <thead>
           <tr>
-            <th>Asset No.</th><th>Name</th><th>Category</th><th>Status</th>
-            <th>Location</th><th>Serial No.</th><th>Department</th>
+            <th>Asset No.</th><th>Name</th><th>Status</th>
+            <th>Location</th><th>Department</th>
             <th>Responsible Person</th><th>Confirmed</th><th>Purchase Value</th>
             <th>Repair Cost</th><th>Book Value</th>
             ${canEdit()?'<th></th>':''}
@@ -341,9 +341,7 @@ async function renderAssetsView() {
             <th><input class="col-filter" id="cf_asset_number" placeholder="Filter…" oninput="onColFilterChange()" value="${esc(state.colFilters.asset_number||'')}" /></th>
             <th><input class="col-filter" id="cf_name" placeholder="Filter…" oninput="onColFilterChange()" value="${esc(state.colFilters.name||'')}" /></th>
             <th></th>
-            <th></th>
             <th><input class="col-filter" id="cf_location" placeholder="Filter…" oninput="onColFilterChange()" value="${esc(state.colFilters.location||'')}" /></th>
-            <th><input class="col-filter" id="cf_serial_number" placeholder="Filter…" oninput="onColFilterChange()" value="${esc(state.colFilters.serial_number||'')}" /></th>
             <th><input class="col-filter" id="cf_accountable_department" placeholder="Filter…" oninput="onColFilterChange()" value="${esc(state.colFilters.accountable_department||'')}" /></th>
             <th><input class="col-filter" id="cf_accountable_person" placeholder="Filter…" oninput="onColFilterChange()" value="${esc(state.colFilters.accountable_person||'')}" /></th>
             <th></th><th></th><th></th>
@@ -352,16 +350,14 @@ async function renderAssetsView() {
         </thead>
         <tbody>
           ${assets.length===0
-            ? `<tr><td colspan="${canEdit()?14:13}" style="text-align:center;padding:48px;color:var(--text-muted)">No assets match your filters.</td></tr>`
+            ? `<tr><td colspan="${canEdit()?11:10}" style="text-align:center;padding:48px;color:var(--text-muted)">No assets match your filters.</td></tr>`
             : assets.map(a => {
                 const cat = CATEGORY_META[a.category]||{icon:'◻',label:a.category};
                 return `<tr onclick="openDetailModal('${a.asset_id}')">
                   <td style="font-family:var(--font-mono);font-size:11px;color:var(--gold-light)">${esc(a.asset_number||'—')}</td>
                   <td class="asset-name">${cat.icon} ${esc(a.name)}</td>
-                  <td>${cat.label}</td>
                   <td>${statusBadge(a.status)}</td>
                   <td>${esc(a.location||'—')}</td>
-                  <td style="font-family:var(--font-mono);font-size:11px">${esc(a.serial_number||'—')}</td>
                   <td>${esc(a.accountable_department||'—')}</td>
                   <td>${esc(a.responsible_user_name||a.accountable_person||'—')}</td>
                   <td>${confirmedBadge(a.confirmed, a.responsible_user_id)}</td>
@@ -417,16 +413,24 @@ function buildAssetParams() {
   if (state.filterCategory)  p.set('category',            state.filterCategory);
   if (state.filterStatus)    p.set('status',              state.filterStatus);
   if (state.searchQuery)     p.set('search',              state.searchQuery);
-  if (state.filterMyAssets)  p.set('responsible_user_id', auth.user?.user_id || '');
+  if (state.filterMyAssets && auth.user?.user_id) {
+    p.set('responsible_user_id', auth.user.user_id);
+  }
   Object.entries(state.colFilters).forEach(([k, v]) => { if (v) p.set(k, v); });
   return p;
 }
 
-function toggleMyAssets() {
+async function toggleMyAssets() {
   state.filterMyAssets = !state.filterMyAssets;
+  if (state.filterMyAssets) {
+    // Reset category when showing My Assets — avoids empty results
+    state.filterCategory  = '';
+    state.currentCategory = null;
+  }
+  await renderAssetsView();
+  // Re-apply active class AFTER render (button is recreated in DOM each render)
   const btn = document.getElementById('myAssetsBtn');
   if (btn) btn.classList.toggle('active', state.filterMyAssets);
-  renderAssetsView();
 }
 
 // ─── INCIDENTS VIEW ───────────────────────────────────────────────────────────
