@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 import uuid
 
 from app.database import get_db
+from pydantic import BaseModel
 from app.models import Asset, User, AssetCreate, AssetUpdate, AssetOut, asset_to_out, compute_book_value
 from app.auth import get_current_user, require_editor
 
@@ -309,6 +310,52 @@ async def confirm_asset(
     users_map = await _get_users_map(db)
     return asset_to_out(asset, users_map)
 
+
+
+
+class ResponsibleUserUpdate(BaseModel):
+    status:    Optional[str] = None
+    confirmed: Optional[bool] = None
+
+
+@router.patch("/{asset_id}/responsible-update", response_model=AssetOut)
+async def responsible_user_update(
+    asset_id: str,
+    payload:  ResponsibleUserUpdate,
+    db:       AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """
+    Allows the responsible user to update the status and/or confirmed fields.
+    Editors and admins can also use this endpoint.
+    """
+    asset = await db.get(Asset, asset_id)
+    if not asset:
+        raise HTTPException(status_code=404, detail="Asset not found")
+
+    is_responsible = asset.responsible_user_id and current_user.user_id == asset.responsible_user_id
+    is_editor      = current_user.role in ("admin", "editor")
+
+    if not is_responsible and not is_editor:
+        raise HTTPException(
+            status_code=403,
+            detail="Only the responsible person, an editor, or an admin can update this asset"
+        )
+
+    if payload.status is not None:
+        valid_statuses = {"available", "in_use", "maintenance", "retired", "lost"}
+        if payload.status not in valid_statuses:
+            raise HTTPException(status_code=400, detail=f"Invalid status: {payload.status}")
+        asset.status = payload.status
+
+    if payload.confirmed is not None:
+        asset.confirmed = payload.confirmed
+
+    asset.updated_at = datetime.now(timezone.utc)
+    await db.commit()
+    await db.refresh(asset)
+    users_map = await _get_users_map(db)
+    return asset_to_out(asset, users_map)
 
 @router.delete("/{asset_id}", status_code=204)
 async def delete_asset(asset_id: str, db: AsyncSession = Depends(get_db), _=Depends(require_editor)):

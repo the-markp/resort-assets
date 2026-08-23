@@ -360,14 +360,19 @@ async function renderAssetsView() {
                   <td>${esc(a.location||'—')}</td>
                   <td>${esc(a.accountable_department||'—')}</td>
                   <td>${esc(a.responsible_user_name||a.accountable_person||'—')}</td>
-                  <td>${confirmedBadge(a.confirmed, a.responsible_user_id)}</td>
+                  <td class="td-confirmed">${confirmedBadge(a.confirmed, a.responsible_user_id)}</td>
                   <td>${a.purchase_value?'₱'+formatNumber(parseFloat(a.purchase_value)):'—'}</td>
                   <td style="color:var(--status-lost)">${a.repair_cost?'₱'+formatNumber(a.repair_cost):'—'}</td>
                   <td style="color:var(--gold-light)">${a.book_value!=null?'₱'+formatNumber(a.book_value):'—'}</td>
-                  ${canEdit()?`<td onclick="event.stopPropagation()"><div class="table-actions">
-                    <button class="btn-icon" title="Edit" onclick="openEditModal('${a.asset_id}')">✎</button>
-                    <button class="btn-icon" title="Delete" onclick="confirmDelete('${a.asset_id}','${esc(a.name)}')">✕</button>
-                  </div></td>`:''}
+                  <td onclick="event.stopPropagation()"><div class="table-actions">
+                    ${canEdit()?`
+                      <button class="btn-icon" title="Edit" onclick="openEditModal('${a.asset_id}')">✎</button>
+                      <button class="btn-icon" title="Delete" onclick="confirmDelete('${a.asset_id}','${esc(a.name)}')">✕</button>
+                    `:''}
+                    ${!canEdit() && auth.user?.user_id === a.responsible_user_id ?`
+                      <button class="btn-icon" title="Update Status" onclick="openResponsibleUpdateModal('${a.asset_id}')">✎</button>
+                    `:''}
+                  </div></td>
                 </tr>`;
               }).join('')
           }
@@ -723,7 +728,15 @@ async function openDetailModal(assetId){
       <div class="detail-header">
         <span class="detail-icon">${cat.icon}</span>
         <div class="detail-meta"><div class="detail-name">${esc(a.name)}</div><div class="detail-id">${a.asset_id}</div><div style="margin-top:8px">${statusBadge(a.status)}</div></div>
-        ${canEdit()?`<div class="detail-actions"><button class="btn-secondary" onclick="closeModal();openEditModal('${a.asset_id}')">Edit</button><button class="btn-danger" onclick="closeModal();confirmDelete('${a.asset_id}','${esc(a.name)}')">Delete</button></div>`:''}
+        <div class="detail-actions">
+          ${canEdit()?`
+            <button class="btn-secondary" onclick="closeModal();openEditModal('${a.asset_id}')">Edit</button>
+            <button class="btn-danger" onclick="closeModal();confirmDelete('${a.asset_id}','${esc(a.name)}')">Delete</button>
+          `:''}
+          ${!canEdit() && isResponsibleUser(a) ? `
+            <button class="btn-secondary" onclick="openResponsibleUpdateModal('${a.asset_id}')">✎ Update Status</button>
+          ` : ''}
+        </div>
       </div>
       <div class="detail-grid">
         <div class="detail-field"><div class="detail-field-label">Asset Number</div><div class="detail-field-value" style="font-family:var(--font-mono);font-size:13px;color:var(--gold-light)">${esc(a.asset_number||'—')}</div></div>
@@ -1182,8 +1195,8 @@ function canConfirm(asset) {
 }
 
 function confirmedBadge(confirmed, responsibleUserId) {
-  if (confirmed) return '<span style="background:#1a2e22;color:#7eb894;border:1px solid #2a4a36;border-radius:20px;padding:2px 10px;font-size:11px;font-family:var(--font-mono)">✓ Confirmed</span>';
-  return '<span style="background:#2e2010;color:#e8b47a;border:1px solid #4a3518;border-radius:20px;padding:2px 10px;font-size:11px;font-family:var(--font-mono)">⏳ Pending</span>';
+  if (confirmed) return '<span class="confirmed-badge" style="background:#1a2e22;color:#7eb894;border:1px solid #2a4a36;border-radius:20px;padding:2px 10px;font-size:11px;font-family:var(--font-mono)">✓ Confirmed</span>';
+  return '<span class="confirmed-badge" style="background:#2e2010;color:#e8b47a;border:1px solid #4a3518;border-radius:20px;padding:2px 10px;font-size:11px;font-family:var(--font-mono)">⏳ Pending</span>';
 }
 
 async function toggleConfirm(assetId) {
@@ -1302,5 +1315,63 @@ async function openEditModal(assetId) {
       showToast('Asset updated.', 'success');
       await (state.currentView === 'assets' ? renderAssetsView() : renderDashboard());
     } catch(e) { showToast(e.message || 'Failed.', 'error'); }
+  });
+}
+
+// ─── RESPONSIBLE USER QUICK-EDIT ──────────────────────────────────────────────
+
+function isResponsibleUser(asset) {
+  return !!asset.responsible_user_id &&
+         auth.user?.user_id === asset.responsible_user_id;
+}
+
+async function openResponsibleUpdateModal(assetId) {
+  let asset;
+  try { asset = await api(`/assets/${assetId}`); }
+  catch { showToast('Could not load asset.', 'error'); return; }
+
+  openModal('Update Asset', `
+    <p style="color:var(--text-muted);font-size:13px;margin-bottom:20px;line-height:1.6">
+      You are the responsible person for <strong style="color:var(--text-primary)">${esc(asset.name)}</strong>.
+      You can update the status and custody confirmation below.
+    </p>
+    <div class="form-grid">
+      <div class="form-group">
+        <label class="form-label">Status</label>
+        <select class="form-select" id="ru_status">
+          ${Object.entries(STATUS_META).map(([k,m]) =>
+            `<option value="${k}" ${asset.status===k?'selected':''}>${m.label}</option>`
+          ).join('')}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Custody Confirmed</label>
+        <select class="form-select" id="ru_confirmed">
+          <option value="true"  ${asset.confirmed ?'selected':''}>✓ Confirmed</option>
+          <option value="false" ${!asset.confirmed?'selected':''}>⏳ Pending</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn-secondary" onclick="closeModal()">Cancel</button>
+      <button class="btn-primary" id="ruSubmitBtn">Save Changes</button>
+    </div>`);
+
+  document.getElementById('ruSubmitBtn').addEventListener('click', async () => {
+    const status    = document.getElementById('ru_status')?.value;
+    const confirmed = document.getElementById('ru_confirmed')?.value === 'true';
+    const btn       = document.getElementById('ruSubmitBtn');
+    btn.textContent = 'Saving…'; btn.disabled = true;
+    try {
+      await api(`/assets/${assetId}/responsible-update`, 'PATCH', { status, confirmed });
+      closeModal();
+      showToast('Asset updated successfully.', 'success');
+      if (state.currentView === 'assets') await renderAssetsView();
+      else await renderDashboard();
+    } catch(err) {
+      showToast(err.message || 'Failed to update asset.', 'error');
+    } finally {
+      btn.textContent = 'Save Changes'; btn.disabled = false;
+    }
   });
 }

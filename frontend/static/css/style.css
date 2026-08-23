@@ -996,6 +996,16 @@ td.asset-id {
 .inc-resolved    { background: #1a2e22; color: #7eb894; border: 1px solid #2a4a36; }
 .inc-closed      { background: var(--bg-elevated); color: var(--text-muted); border: 1px solid var(--border); }
 
+/* ─── CONFIRMED COLUMN — prevent wrapping ─────────────────────────────── */
+.td-confirmed {
+  white-space: nowrap;
+  min-width: 130px;
+}
+.confirmed-badge {
+  white-space: nowrap;
+  display: inline-block;
+}
+
 /* Incident detail panel */
 .incident-detail { }
 .inc-detail-header { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
