@@ -307,7 +307,7 @@ async function renderAssetsView() {
   el.innerHTML = '<div class="loading">Loading assets</div>';
   const params = buildAssetParams();
   let assets;
-  try { assets = await api(`/assets/?${params}`); }
+  try { assets = await api(`/assets?${params}`); }
   catch { el.innerHTML=`<div class="empty-state"><span class="empty-icon">⚠</span><p>Failed to load assets.</p></div>`; return; }
   const catLabel = state.currentCategory ? CATEGORY_META[state.currentCategory]?.label||'Assets' : 'All Assets';
 
@@ -316,7 +316,7 @@ async function renderAssetsView() {
       <h2>${catLabel}</h2>
       <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
         <button class="btn-secondary" id="exportCsvBtn" onclick="exportCSV()">⬇ Export CSV</button>
-        <button class="btn-my-assets" id="myAssetsBtn" onclick="toggleMyAssets()" title="Show only assets assigned to me">👤 My Assets</button>
+        <button class="btn-my-assets ${state.filterMyAssets?'active':''}" id="myAssetsBtn" onclick="toggleMyAssets()" title="Show only assets assigned to me">👤 My Assets</button>
         <div class="assets-filters">
           <select class="filter-select" id="filterStatus" onchange="onFilterChange()">
             <option value="">All Statuses</option>
@@ -369,8 +369,8 @@ async function renderAssetsView() {
                       <button class="btn-icon" title="Edit" onclick="openEditModal('${a.asset_id}')">✎</button>
                       <button class="btn-icon" title="Delete" onclick="confirmDelete('${a.asset_id}','${esc(a.name)}')">✕</button>
                     `:''}
-                    ${!canEdit() && auth.user?.user_id === a.responsible_user_id ?`
-                      <button class="btn-icon" title="Update Status" onclick="openResponsibleUpdateModal('${a.asset_id}')">✎</button>
+                    ${a.responsible_user_id && auth.user?.user_id === a.responsible_user_id && !canEdit() ?`
+                      <button class="btn-icon" title="Update My Asset" onclick="event.stopPropagation();openResponsibleUpdateModal('${a.asset_id}')">✎</button>
                     `:''}
                   </div></td>
                 </tr>`;
@@ -407,7 +407,6 @@ function clearAllFilters() {
   state.filterCategory = '';
   state.searchQuery    = '';
   state.filterMyAssets = false;
-  const myBtn = document.getElementById('myAssetsBtn'); if(myBtn) myBtn.classList.remove('active');
   document.getElementById('globalSearch').value = '';
   Object.keys(state.colFilters).forEach(k => state.colFilters[k] = '');
   renderAssetsView();
@@ -428,14 +427,12 @@ function buildAssetParams() {
 async function toggleMyAssets() {
   state.filterMyAssets = !state.filterMyAssets;
   if (state.filterMyAssets) {
-    // Reset category when showing My Assets — avoids empty results
+    // Reset category when showing My Assets
     state.filterCategory  = '';
     state.currentCategory = null;
   }
   await renderAssetsView();
-  // Re-apply active class AFTER render (button is recreated in DOM each render)
-  const btn = document.getElementById('myAssetsBtn');
-  if (btn) btn.classList.toggle('active', state.filterMyAssets);
+  // Active class is now baked into the button HTML at render time — no extra step needed
 }
 
 // ─── INCIDENTS VIEW ───────────────────────────────────────────────────────────
@@ -733,8 +730,8 @@ async function openDetailModal(assetId){
             <button class="btn-secondary" onclick="closeModal();openEditModal('${a.asset_id}')">Edit</button>
             <button class="btn-danger" onclick="closeModal();confirmDelete('${a.asset_id}','${esc(a.name)}')">Delete</button>
           `:''}
-          ${!canEdit() && isResponsibleUser(a) ? `
-            <button class="btn-secondary" onclick="openResponsibleUpdateModal('${a.asset_id}')">✎ Update Status</button>
+          ${isResponsibleUser(a) ? `
+            <button class="btn-secondary" onclick="openResponsibleUpdateModal('${a.asset_id}')">✎ My Confirmation</button>
           ` : ''}
         </div>
       </div>
