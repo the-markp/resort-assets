@@ -118,7 +118,7 @@ function doLogout(){clearAuth();state={currentView:'dashboard',currentCategory:n
 // ─── LOGO ─────────────────────────────────────────────────────────────────────
 async function loadLogo() {
   try {
-    const settings = await api('/settings');
+    const settings = await api('/settings/');
     if (settings.logo_path) renderLogo(settings.logo_path);
   } catch {}
 }
@@ -208,7 +208,7 @@ function bindApp() {
 // ─── INCIDENT BADGE ───────────────────────────────────────────────────────────
 async function refreshIncidentBadge() {
   try {
-    const incidents = await api('/incidents?status=open');
+    const incidents = await api('/incidents/?status=open');
     const badge = document.getElementById('openIncidentsBadge');
     if (!badge) return;
     const count = incidents.length;
@@ -441,7 +441,7 @@ async function renderIncidentsView() {
   const el = document.getElementById('view-incidents');
   el.innerHTML = '<div class="loading">Loading incidents</div>';
   let incidents;
-  try { incidents = await api('/incidents'); }
+  try { incidents = await api('/incidents/'); }
   catch { el.innerHTML=`<div class="empty-state"><span class="empty-icon">⚠</span><p>Failed to load incidents.</p></div>`; return; }
 
   // Group by status
@@ -617,7 +617,7 @@ function openReportIncidentModal() {
     </div>`);
 
   // Populate asset dropdown
-  api('/assets').then(assets => {
+  api('/assets/').then(assets => {
     const sel = document.getElementById('inc_asset_id');
     if(!sel) return;
     assets.forEach(a => {
@@ -634,7 +634,7 @@ function openReportIncidentModal() {
     const severity=document.getElementById('inc_severity')?.value;
     if(!title||!desc){showToast('Title and description are required.','error');return;}
     try {
-      await api('/incidents','POST',{title,description:desc,asset_id,severity});
+      await api('/incidents/','POST',{title,description:desc,asset_id,severity});
       closeModal();
       showToast('Incident reported.','success');
       await renderIncidentsView();
@@ -696,6 +696,10 @@ function assetForm(asset=null,prefillCat=null){
 }
 
 function collectAssetForm(){
+  // Read responsible_user_id — null if blank or __manual__ sentinel
+  const ruVal = document.getElementById('f_responsible_user_id')?.value;
+  const responsibleUserId = (ruVal && ruVal !== '__manual__') ? ruVal : null;
+
   return {
     asset_number:           document.getElementById('f_asset_number')?.value.trim()||null,
     name:                   document.getElementById('f_name')?.value.trim(),
@@ -704,6 +708,7 @@ function collectAssetForm(){
     location:               document.getElementById('f_location')?.value.trim()||null,
     serial_number:          document.getElementById('f_serial_number')?.value.trim()||null,
     accountable_department: document.getElementById('f_accountable_department')?.value.trim()||null,
+    responsible_user_id:    responsibleUserId,
     accountable_person:     document.getElementById('f_accountable_person')?.value.trim()||null,
     purchase_date:          document.getElementById('f_purchase_date')?.value||null,
     purchase_value:         document.getElementById('f_purchase_value')?.value||null,
@@ -715,7 +720,7 @@ function collectAssetForm(){
   };
 }
 
-function openAddModal(){openModal('New Asset',assetForm(null,state.currentCategory));document.getElementById('assetFormSubmit').addEventListener('click',async()=>{const data=collectAssetForm();if(!data.name||!data.category){showToast('Name and category are required.','error');return;}try{await api('/assets','POST',data);closeModal();showToast('Asset created.','success');await(state.currentView==='assets'?renderAssetsView():renderDashboard());}catch(e){showToast(e.message||'Failed.','error');}});}
+function openAddModal(){openModal('New Asset',assetForm(null,state.currentCategory));document.getElementById('assetFormSubmit').addEventListener('click',async()=>{const data=collectAssetForm();if(!data.name||!data.category){showToast('Name and category are required.','error');return;}try{await api('/assets/','POST',data);closeModal();showToast('Asset created.','success');await(state.currentView==='assets'?renderAssetsView():renderDashboard());}catch(e){showToast(e.message||'Failed.','error');}});}
 async function openEditModal(assetId){const asset=await api(`/assets/${assetId}`);openModal('Edit Asset',assetForm(asset));document.getElementById('assetFormSubmit').addEventListener('click',async()=>{const data=collectAssetForm();try{await api(`/assets/${assetId}`,'PUT',data);closeModal();showToast('Asset updated.','success');await(state.currentView==='assets'?renderAssetsView():renderDashboard());}catch(e){showToast(e.message||'Failed.','error');}});}
 
 async function openDetailModal(assetId){
@@ -779,7 +784,7 @@ async function renderUsersView(){
   if(!isAdmin()){document.getElementById('view-users').innerHTML=`<div class="empty-state"><span class="empty-icon">🔒</span><p>Admin access required.</p></div>`;return;}
   const el=document.getElementById('view-users');
   el.innerHTML='<div class="loading">Loading users</div>';
-  let users;try{users=await api('/users');}catch{el.innerHTML=`<div class="empty-state"><span class="empty-icon">⚠</span><p>Failed to load users.</p></div>`;return;}
+  let users;try{users=await api('/users/');}catch{el.innerHTML=`<div class="empty-state"><span class="empty-icon">⚠</span><p>Failed to load users.</p></div>`;return;}
   el.innerHTML=`<div class="assets-header"><h2>User Management</h2><button class="btn-primary" onclick="openAddUserModal()">+ New User</button></div>
     <div class="table-wrap"><table><thead><tr><th>Username</th><th>Full Name</th><th>Email</th><th>Role</th><th>Status</th><th></th></tr></thead><tbody>
       ${users.map(u=>`<tr class="${u.is_active?'':'user-inactive'}">
@@ -814,8 +819,8 @@ function collectUserForm(isEdit=false){
   return data;
 }
 
-function openAddUserModal(){openModal('New User',userForm());document.getElementById('userFormSubmit').addEventListener('click',async()=>{const data=collectUserForm(false);if(!data||!data.username){showToast('Username is required.','error');return;}try{await api('/users','POST',data);closeModal();showToast('User created.','success');await renderUsersView();}catch(e){showToast(e.message||'Failed.','error');}});}
-async function openEditUserModal(userId){let users;try{users=await api('/users');}catch{showToast('Could not load user.','error');return;}const user=users.find(u=>u.user_id===userId);if(!user)return;openModal('Edit User',userForm(user));document.getElementById('userFormSubmit').addEventListener('click',async()=>{const data=collectUserForm(true);if(!data)return;try{await api(`/users/${userId}`,'PUT',data);closeModal();showToast('User updated.','success');await renderUsersView();}catch(e){showToast(e.message||'Failed.','error');}});}
+function openAddUserModal(){openModal('New User',userForm());document.getElementById('userFormSubmit').addEventListener('click',async()=>{const data=collectUserForm(false);if(!data||!data.username){showToast('Username is required.','error');return;}try{await api('/users/','POST',data);closeModal();showToast('User created.','success');await renderUsersView();}catch(e){showToast(e.message||'Failed.','error');}});}
+async function openEditUserModal(userId){let users;try{users=await api('/users/');}catch{showToast('Could not load user.','error');return;}const user=users.find(u=>u.user_id===userId);if(!user)return;openModal('Edit User',userForm(user));document.getElementById('userFormSubmit').addEventListener('click',async()=>{const data=collectUserForm(true);if(!data)return;try{await api(`/users/${userId}`,'PUT',data);closeModal();showToast('User updated.','success');await renderUsersView();}catch(e){showToast(e.message||'Failed.','error');}});}
 function confirmDeleteUser(userId,username){openModal('Delete User',`<p style="color:var(--text-secondary);margin-bottom:24px;line-height:1.7">Delete user <strong style="color:var(--text-primary)">${esc(username)}</strong>?</p><div class="form-actions"><button class="btn-secondary" onclick="closeModal()">Cancel</button><button class="btn-danger" style="padding:9px 20px" onclick="deleteUser('${userId}')">Delete User</button></div>`);}
 async function deleteUser(userId){try{await api(`/users/${userId}`,'DELETE');closeModal();showToast('User deleted.','info');await renderUsersView();}catch(e){showToast(e.message,'error');}}
 
