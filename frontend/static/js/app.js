@@ -426,13 +426,14 @@ function buildAssetParams() {
 
 async function toggleMyAssets() {
   state.filterMyAssets = !state.filterMyAssets;
+  console.log('[MyAssets] toggled:', state.filterMyAssets, '| user_id:', auth.user?.user_id);
   if (state.filterMyAssets) {
-    // Reset category when showing My Assets
     state.filterCategory  = '';
     state.currentCategory = null;
   }
+  const params = buildAssetParams();
+  console.log('[MyAssets] params:', params.toString());
   await renderAssetsView();
-  // Active class is now baked into the button HTML at render time — no extra step needed
 }
 
 // ─── INCIDENTS VIEW ───────────────────────────────────────────────────────────
@@ -1318,8 +1319,13 @@ async function openEditModal(assetId) {
 // ─── RESPONSIBLE USER QUICK-EDIT ──────────────────────────────────────────────
 
 function isResponsibleUser(asset) {
-  return !!asset.responsible_user_id &&
-         auth.user?.user_id === asset.responsible_user_id;
+  const result = !!asset.responsible_user_id &&
+                 auth.user?.user_id === asset.responsible_user_id;
+  console.log('[isResponsibleUser]', asset.name,
+    '| asset.responsible_user_id:', asset.responsible_user_id,
+    '| auth.user?.user_id:', auth.user?.user_id,
+    '| match:', result);
+  return result;
 }
 
 async function openResponsibleUpdateModal(assetId) {
