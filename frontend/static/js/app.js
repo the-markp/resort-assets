@@ -720,8 +720,7 @@ function collectAssetForm(){
   };
 }
 
-function openAddModal(){openModal('New Asset',assetForm(null,state.currentCategory));document.getElementById('assetFormSubmit').addEventListener('click',async()=>{const data=collectAssetForm();if(!data.name||!data.category){showToast('Name and category are required.','error');return;}try{await api('/assets/','POST',data);closeModal();showToast('Asset created.','success');await(state.currentView==='assets'?renderAssetsView():renderDashboard());}catch(e){showToast(e.message||'Failed.','error');}});}
-async function openEditModal(assetId){const asset=await api(`/assets/${assetId}`);openModal('Edit Asset',assetForm(asset));document.getElementById('assetFormSubmit').addEventListener('click',async()=>{const data=collectAssetForm();try{await api(`/assets/${assetId}`,'PUT',data);closeModal();showToast('Asset updated.','success');await(state.currentView==='assets'?renderAssetsView():renderDashboard());}catch(e){showToast(e.message||'Failed.','error');}});}
+// openAddModal and openEditModal defined below
 
 async function openDetailModal(assetId){
   let a;try{a=await api(`/assets/${assetId}`);}catch{showToast('Could not load asset.','error');return;}
@@ -1293,23 +1292,30 @@ async function populateUserPicker(selectedUserId, existingPersonName) {
   }
 }
 
-// Override openAddModal and openEditModal to populate user picker after render
-const _origOpenAddModal  = openAddModal;
-const _origOpenEditModal = openEditModal;
+// ── Single clean definitions for Add and Edit modals ────────────────────────
 
 async function openAddModal() {
-  _origOpenAddModal();
+  openModal('New Asset', assetForm(null, state.currentCategory));
   await populateUserPicker(null, null);
+  document.getElementById('assetFormSubmit').addEventListener('click', async () => {
+    const data = collectAssetForm();
+    if (!data.name || !data.category) {
+      showToast('Name and category are required.', 'error');
+      return;
+    }
+    try {
+      await api('/assets/', 'POST', data);
+      closeModal();
+      showToast('Asset created.', 'success');
+      await (state.currentView === 'assets' ? renderAssetsView() : renderDashboard());
+    } catch(e) { showToast(e.message || 'Failed.', 'error'); }
+  });
 }
 
 async function openEditModal(assetId) {
   const asset = await api(`/assets/${assetId}`);
   openModal('Edit Asset', assetForm(asset));
-
-  // Await picker population so the correct user is selected BEFORE
-  // the user can click Save — avoids the dropdown resetting to empty
   await populateUserPicker(asset.responsible_user_id, asset.accountable_person);
-
   document.getElementById('assetFormSubmit').addEventListener('click', async () => {
     const data = collectAssetForm();
     try {
