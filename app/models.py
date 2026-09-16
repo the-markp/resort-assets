@@ -251,6 +251,7 @@ class IncidentCreate(BaseModel):
     title:       str
     description: str
     severity:    IncidentSeverity    = "medium"
+    assigned_to: Optional[str]       = None
 
 
 class IncidentUpdate(BaseModel):
@@ -277,20 +278,21 @@ class CommentOut(BaseModel):
 
 
 class IncidentOut(BaseModel):
-    incident_id:   str
-    asset_id:      Optional[str]
-    asset_name:    Optional[str]
-    title:         str
-    description:   str
-    severity:      str
-    status:        str
-    reported_by:   str
-    reporter_name: Optional[str]
-    assigned_to:   Optional[str]
-    resolution:    Optional[str]
-    comments:      List[CommentOut] = []
-    created_at:    datetime
-    updated_at:    datetime
+    incident_id:      str
+    asset_id:         Optional[str]
+    asset_name:       Optional[str]
+    title:            str
+    description:      str
+    severity:         str
+    status:           str
+    reported_by:      str
+    reporter_name:    Optional[str]
+    assigned_to:      Optional[str]
+    assigned_to_name: Optional[str] = None   # resolved at serialisation
+    resolution:       Optional[str]
+    comments:         List[CommentOut] = []
+    created_at:       datetime
+    updated_at:       datetime
     model_config = {"from_attributes": True}
 
 
