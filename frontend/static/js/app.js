@@ -208,22 +208,12 @@ function bindApp() {
 // ─── INCIDENT BADGE ───────────────────────────────────────────────────────────
 async function refreshIncidentBadge() {
   try {
-    const incidents = await api('/incidents/');
+    const incidents = await api('/incidents/?status=open');
     const badge = document.getElementById('openIncidentsBadge');
     if (!badge) return;
-
-    // Count open incidents + unresolved incidents assigned to me
-    const openCount   = incidents.filter(i => i.status === 'open').length;
-    const assignedToMe = incidents.filter(i =>
-      i.assigned_to === auth.user?.user_id &&
-      !['resolved','closed'].includes(i.status)
-    ).length;
-
-    // Show the higher of the two counts; pulse red if you have assignments
-    const count = Math.max(openCount, assignedToMe);
+    const count = incidents.length;
     badge.textContent = count;
     badge.classList.toggle('hidden', count === 0);
-    badge.classList.toggle('badge-assigned', assignedToMe > 0);
   } catch {}
 }
 
@@ -469,45 +459,26 @@ async function renderIncidentsView() {
     </div>
     ${incidents.length===0?`<div class="empty-state"><span class="empty-icon">⚑</span><p>No incidents reported. Great!</p></div>`:`
     <div style="display:flex;flex-direction:column;gap:28px">
-      ${(() => {
-        const myActions = incidents.filter(i =>
-          i.assigned_to === auth.user?.user_id &&
-          !['resolved','closed'].includes(i.status)
-        );
-        if (!myActions.length) return '';
-        return `<div class="my-actions-section">
-          <div class="my-actions-header">
-            <span class="my-actions-icon">⚡</span>
-            <span>Action Required — ${myActions.length} incident${myActions.length>1?'s':''} assigned to you</span>
-          </div>
-          <div class="incident-grid">${myActions.map(i => incidentCard(i, true)).join('')}</div>
-        </div>`;
-      })()}
-      ${open.length?`<div><div class="panel-title" style="margin-bottom:12px;font-family:var(--font-mono);font-size:10px;letter-spacing:.2em;color:var(--status-lost)">OPEN (${open.length})</div><div class="incident-grid">${open.map(i => incidentCard(i)).join('')}</div></div>`:''}
-      ${inprog.length?`<div><div class="panel-title" style="margin-bottom:12px;font-family:var(--font-mono);font-size:10px;letter-spacing:.2em;color:var(--status-maintenance)">IN PROGRESS (${inprog.length})</div><div class="incident-grid">${inprog.map(i => incidentCard(i)).join('')}</div></div>`:''}
-      ${resolved.length?`<div><div class="panel-title" style="margin-bottom:12px;font-family:var(--font-mono);font-size:10px;letter-spacing:.2em;color:var(--text-muted)">RESOLVED / CLOSED (${resolved.length})</div><div class="incident-grid">${resolved.map(i => incidentCard(i)).join('')}</div></div>`:''}
+      ${open.length?`<div><div class="panel-title" style="margin-bottom:12px;font-family:var(--font-mono);font-size:10px;letter-spacing:.2em;color:var(--status-lost)">OPEN (${open.length})</div><div class="incident-grid">${open.map(incidentCard).join('')}</div></div>`:''}
+      ${inprog.length?`<div><div class="panel-title" style="margin-bottom:12px;font-family:var(--font-mono);font-size:10px;letter-spacing:.2em;color:var(--status-maintenance)">IN PROGRESS (${inprog.length})</div><div class="incident-grid">${inprog.map(incidentCard).join('')}</div></div>`:''}
+      ${resolved.length?`<div><div class="panel-title" style="margin-bottom:12px;font-family:var(--font-mono);font-size:10px;letter-spacing:.2em;color:var(--text-muted)">RESOLVED / CLOSED (${resolved.length})</div><div class="incident-grid">${resolved.map(incidentCard).join('')}</div></div>`:''}
     </div>`}`;
 }
 
-function incidentCard(inc, highlight = false) {
-  const sev      = SEVERITY_META[inc.severity]  || {label: inc.severity,  cls: 'sev-medium'};
-  const st       = INC_STATUS_META[inc.status]  || {label: inc.status,    cls: 'inc-open'};
-  const isAssigned = inc.assigned_to && inc.assigned_to === auth.user?.user_id;
-  const isReporter = inc.reported_by === auth.user?.user_id;
-
-  return `<div class="incident-card ${isAssigned ? 'incident-card-assigned' : ''} ${highlight ? 'incident-card-highlight' : ''}"
-               onclick="openIncidentDetail('${inc.incident_id}')">
-    ${isAssigned ? `<div class="incident-assigned-banner">⚡ Action Required — Assigned to you</div>` : ''}
+function incidentCard(inc) {
+  const sev=SEVERITY_META[inc.severity]||{label:inc.severity,cls:'sev-medium'};
+  const st=INC_STATUS_META[inc.status]||{label:inc.status,cls:'inc-open'};
+  return `<div class="incident-card" onclick="openIncidentDetail('${inc.incident_id}')">
     <div class="incident-card-header">
       <div class="incident-card-title">${esc(inc.title)}</div>
       <span class="sev-badge ${sev.cls}">${sev.label}</span>
     </div>
-    ${inc.asset_name ? `<div class="incident-card-asset">📎 ${esc(inc.asset_name)}</div>` : ''}
+    ${inc.asset_name?`<div class="incident-card-asset">📎 ${esc(inc.asset_name)}</div>`:''}
     <div class="incident-card-meta" style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
       <span class="inc-status-badge ${st.cls}">${st.label}</span>
-      <span>${isReporter ? '✎ You reported' : 'by ' + esc(inc.reporter_name||'Unknown')}</span>
+      <span>by ${esc(inc.reporter_name||'Unknown')}</span>
       <span>· ${timeAgo(inc.created_at)}</span>
-      ${inc.comments.length ? `<span>· 💬 ${inc.comments.length}</span>` : ''}
+      ${inc.comments.length?`<span>· 💬 ${inc.comments.length}</span>`:''}
     </div>
   </div>`;
 }
@@ -531,12 +502,6 @@ async function openIncidentDetail(incidentId) {
           <label class="form-label">Severity</label>
           <select class="form-select" id="incSeverity">
             ${Object.entries(SEVERITY_META).map(([k,v])=>`<option value="${k}" ${inc.severity===k?'selected':''}>${v.label}</option>`).join('')}
-          </select>
-        </div>
-        <div class="form-group full">
-          <label class="form-label">Assign To</label>
-          <select class="form-select" id="incAssignedTo">
-            <option value="">— Unassigned —</option>
           </select>
         </div>
         <div class="form-group full">
@@ -564,9 +529,6 @@ async function openIncidentDetail(incidentId) {
           <div style="font-size:12px;color:var(--text-muted);margin-top:6px;font-family:var(--font-mono)">
             Reported by ${esc(inc.reporter_name||'Unknown')} · ${timeAgo(inc.created_at)}
           </div>
-          ${inc.assigned_to ? `<div style="margin-top:4px;font-size:12px;font-family:var(--font-mono)">
-            <span style="color:var(--status-maintenance)">⚡ Assigned to: ${esc(inc.assigned_to_name || inc.assigned_to)}</span>
-          </div>` : ''}
         </div>
       </div>
       <div class="detail-notes" style="margin-bottom:16px">${esc(inc.description)}</div>
@@ -588,29 +550,13 @@ async function openIncidentDetail(incidentId) {
         </div>
       </div>
     </div>`);
-  // Populate Assign To picker with current assignee pre-selected (editor controls only)
-  if (canEdit()) {
-    api('/users/picker').then(users => {
-      const sel = document.getElementById('incAssignedTo');
-      if (!sel) return;
-      users.forEach(u => {
-        const opt = document.createElement('option');
-        opt.value = u.user_id;
-        opt.textContent = `${u.full_name || u.username} (${u.role})`;
-        if (u.user_id === inc.assigned_to) opt.selected = true;
-        sel.appendChild(opt);
-      });
-    }).catch(() => {});
-  }
 }
 
 async function updateIncident(id) {
-  const assignedTo = document.getElementById('incAssignedTo')?.value;
   const payload = {
-    status:      document.getElementById('incStatus')?.value,
-    severity:    document.getElementById('incSeverity')?.value,
-    assigned_to: assignedTo || null,
-    resolution:  document.getElementById('incResolution')?.value.trim()||null,
+    status:     document.getElementById('incStatus')?.value,
+    severity:   document.getElementById('incSeverity')?.value,
+    resolution: document.getElementById('incResolution')?.value.trim()||null,
   };
   try {
     await api(`/incidents/${id}`,'PUT',payload);
@@ -689,12 +635,6 @@ async function openReportIncidentModal() {
           ${Object.entries(SEVERITY_META).map(([k,v])=>`<option value="${k}" ${k==='medium'?'selected':''}>${v.label}</option>`).join('')}
         </select>
       </div>
-      <div class="form-group">
-        <label class="form-label">Assign To</label>
-        <select class="form-select" id="inc_assigned_to">
-          <option value="">— Unassigned —</option>
-        </select>
-      </div>
       <div class="form-group full">
         <label class="form-label">Description *</label>
         <textarea class="form-textarea" id="inc_description" style="min-height:100px" placeholder="Describe what happened, when, and where…"></textarea>
@@ -705,27 +645,14 @@ async function openReportIncidentModal() {
       <button class="btn-primary" id="incSubmitBtn">Submit Report</button>
     </div>`);
 
-  // Populate Assign To dropdown
-  api('/users/picker').then(users => {
-    const sel = document.getElementById('inc_assigned_to');
-    if (!sel) return;
-    users.forEach(u => {
-      const opt = document.createElement('option');
-      opt.value = u.user_id;
-      opt.textContent = \`\${u.full_name || u.username} (\${u.role})\`;
-      sel.appendChild(opt);
-    });
-  }).catch(() => {});
-
   document.getElementById('incSubmitBtn').addEventListener('click', async () => {
-    const title       = document.getElementById('inc_title')?.value.trim();
-    const desc        = document.getElementById('inc_description')?.value.trim();
-    const asset_id    = document.getElementById('inc_asset_id')?.value || null;
-    const severity    = document.getElementById('inc_severity')?.value;
-    const assigned_to = document.getElementById('inc_assigned_to')?.value || null;
+    const title    = document.getElementById('inc_title')?.value.trim();
+    const desc     = document.getElementById('inc_description')?.value.trim();
+    const asset_id = document.getElementById('inc_asset_id')?.value || null;
+    const severity = document.getElementById('inc_severity')?.value;
     if (!title || !desc) { showToast('Title and description are required.', 'error'); return; }
     try {
-      await api('/incidents/', 'POST', { title, description: desc, asset_id, severity, assigned_to });
+      await api('/incidents/', 'POST', { title, description: desc, asset_id, severity });
       closeModal();
       showToast('Incident reported.', 'success');
       await renderIncidentsView();
