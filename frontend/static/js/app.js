@@ -712,7 +712,7 @@ async function openReportIncidentModal() {
     users.forEach(u => {
       const opt = document.createElement('option');
       opt.value = u.user_id;
-      opt.textContent = \`\${u.full_name || u.username} (\${u.role})\`;
+      opt.textContent = `${u.full_name || u.username} (${u.role})`;
       sel.appendChild(opt);
     });
   }).catch(() => {});
