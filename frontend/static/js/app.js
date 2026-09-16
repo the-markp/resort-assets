@@ -587,7 +587,25 @@ async function submitComment(incidentId) {
   } catch(e) { showToast(e.message,'error'); }
 }
 
-function openReportIncidentModal() {
+// All assets cached for the incident form (location → assets map)
+let _incidentAssets = [];
+
+async function openReportIncidentModal() {
+  // Fetch all assets once and cache for filtering
+  try {
+    _incidentAssets = await api('/assets/');
+  } catch {
+    _incidentAssets = [];
+    showToast('Could not load assets for selection.', 'error');
+  }
+
+  // Extract unique, sorted locations
+  const locations = [...new Set(
+    _incidentAssets
+      .map(a => a.location)
+      .filter(Boolean)
+  )].sort();
+
   openModal('Report Incident', `
     <div class="form-grid">
       <div class="form-group full">
@@ -595,9 +613,20 @@ function openReportIncidentModal() {
         <input class="form-input" id="inc_title" placeholder="Brief description of the incident" />
       </div>
       <div class="form-group">
+        <label class="form-label">Location</label>
+        <select class="form-select" id="inc_location" onchange="onIncidentLocationChange()">
+          <option value="">— All locations —</option>
+          ${locations.map(l => `<option value="${esc(l)}">${esc(l)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group">
         <label class="form-label">Related Asset (optional)</label>
         <select class="form-select" id="inc_asset_id">
           <option value="">— None —</option>
+          ${_incidentAssets.map(a => {
+            const cat = CATEGORY_META[a.category] || { icon: '◻' };
+            return `<option value="${a.asset_id}" data-location="${esc(a.location||'')}">${cat.icon} ${esc(a.name)}${a.location ? ' · ' + esc(a.location) : ''}</option>`;
+          }).join('')}
         </select>
       </div>
       <div class="form-group">
@@ -616,30 +645,43 @@ function openReportIncidentModal() {
       <button class="btn-primary" id="incSubmitBtn">Submit Report</button>
     </div>`);
 
-  // Populate asset dropdown
-  api('/assets/').then(assets => {
-    const sel = document.getElementById('inc_asset_id');
-    if(!sel) return;
-    assets.forEach(a => {
-      const opt=document.createElement('option');
-      opt.value=a.asset_id; opt.textContent=a.name;
-      sel.appendChild(opt);
-    });
-  }).catch(()=>{});
-
   document.getElementById('incSubmitBtn').addEventListener('click', async () => {
-    const title=document.getElementById('inc_title')?.value.trim();
-    const desc=document.getElementById('inc_description')?.value.trim();
-    const asset_id=document.getElementById('inc_asset_id')?.value||null;
-    const severity=document.getElementById('inc_severity')?.value;
-    if(!title||!desc){showToast('Title and description are required.','error');return;}
+    const title    = document.getElementById('inc_title')?.value.trim();
+    const desc     = document.getElementById('inc_description')?.value.trim();
+    const asset_id = document.getElementById('inc_asset_id')?.value || null;
+    const severity = document.getElementById('inc_severity')?.value;
+    if (!title || !desc) { showToast('Title and description are required.', 'error'); return; }
     try {
-      await api('/incidents/','POST',{title,description:desc,asset_id,severity});
+      await api('/incidents/', 'POST', { title, description: desc, asset_id, severity });
       closeModal();
-      showToast('Incident reported.','success');
+      showToast('Incident reported.', 'success');
       await renderIncidentsView();
       refreshIncidentBadge();
-    } catch(e){showToast(e.message||'Failed to submit.','error');}
+    } catch(e) { showToast(e.message || 'Failed to submit.', 'error'); }
+  });
+}
+
+function onIncidentLocationChange() {
+  const location = document.getElementById('inc_location')?.value;
+  const assetSel = document.getElementById('inc_asset_id');
+  if (!assetSel) return;
+
+  // Reset asset selection
+  assetSel.value = '';
+
+  // Show/hide options based on selected location
+  Array.from(assetSel.options).forEach(opt => {
+    if (!opt.value) {
+      // "— None —" option always visible
+      opt.style.display = '';
+      return;
+    }
+    if (!location) {
+      // No location filter — show all
+      opt.style.display = '';
+    } else {
+      opt.style.display = opt.dataset.location === location ? '' : 'none';
+    }
   });
 }
 

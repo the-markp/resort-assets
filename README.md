@@ -189,6 +189,11 @@ resort-assets/
 
 ## Mass data upload
 
+# Delete Asset table
+docker exec -it gtracker_db \
+    psql -U palma palma_assets -c \
+    "TRUNCATE TABLE assets CASCADE;"
+
 1. Install Python
 2. Install dependency
 pip install requests openpyxl

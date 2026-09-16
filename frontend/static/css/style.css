@@ -1164,3 +1164,9 @@ td.asset-id {
 }
 .btn-my-assets:hover { background: var(--gold-dark); color: var(--text-inverse); }
 .btn-my-assets.active { background: var(--gold-dark); color: var(--text-inverse); }
+
+/* ─── INCIDENT FORM LOCATION HINT ────────────────────────────────────── */
+#inc_location option,
+#inc_asset_id option {
+  background: var(--bg-card);
+}
