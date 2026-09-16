@@ -10,7 +10,7 @@ import csv
 import io
 from datetime import datetime as dt
 from app.database import get_db
-from app.models import (Incident, IncidentComment, Asset, User,
+from app.models import (Incident, IncidentComment, Asset,
                          IncidentCreate, IncidentUpdate, CommentCreate,
                          IncidentOut, CommentOut)
 from app.auth import get_current_user, require_editor
@@ -18,17 +18,9 @@ from app.auth import get_current_user, require_editor
 router = APIRouter()
 
 
-async def _resolve_user_name(db, user_id: str) -> str | None:
-    if not user_id:
-        return None
-    user = await db.get(User, user_id)
-    return (user.full_name or user.username) if user else None
-
-
-async def _incident_to_out(incident, comments, db) -> IncidentOut:
+def _incident_to_out(incident, comments) -> IncidentOut:
     obj = IncidentOut.model_validate(incident)
     obj.comments = [CommentOut.model_validate(c) for c in comments]
-    obj.assigned_to_name = await _resolve_user_name(db, incident.assigned_to)
     return obj
 
 
@@ -129,7 +121,7 @@ async def list_incidents(
             .where(IncidentComment.incident_id == inc.incident_id)
             .order_by(IncidentComment.created_at)
         )
-        out.append(await _incident_to_out(inc, cr.scalars().all(), db))
+        out.append(_incident_to_out(inc, cr.scalars().all()))
     return out
 
 
@@ -143,7 +135,7 @@ async def get_incident(incident_id: str, db: AsyncSession = Depends(get_db), _=D
         .where(IncidentComment.incident_id == incident_id)
         .order_by(IncidentComment.created_at)
     )
-    return await _incident_to_out(inc, cr.scalars().all(), db)
+    return _incident_to_out(inc, cr.scalars().all())
 
 
 @router.post("/", response_model=IncidentOut, status_code=201)
@@ -169,14 +161,13 @@ async def create_incident(
         status        = "open",
         reported_by   = current_user.user_id,
         reporter_name = current_user.full_name or current_user.username,
-        assigned_to   = payload.assigned_to,
         created_at    = now,
         updated_at    = now,
     )
     db.add(inc)
     await db.commit()
     await db.refresh(inc)
-    return await _incident_to_out(inc, [], db)
+    return _incident_to_out(inc, [])
 
 
 @router.put("/{incident_id}", response_model=IncidentOut)
@@ -203,7 +194,7 @@ async def update_incident(
         .where(IncidentComment.incident_id == incident_id)
         .order_by(IncidentComment.created_at)
     )
-    return await _incident_to_out(inc, cr.scalars().all(), db)
+    return _incident_to_out(inc, cr.scalars().all())
 
 
 @router.post("/{incident_id}/comments", response_model=CommentOut, status_code=201)
